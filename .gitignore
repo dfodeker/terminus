@@ -1,0 +1,12 @@
+.env
+.secrets
+.vscode/
+.idea/
+.DS_Store
+node_modules/
+dist/
+build/
+coverage/
+logs/
+.obi
+.
