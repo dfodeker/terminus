@@ -85,9 +85,13 @@ Those are deliberately left out to keep the focus on backend behavior and correc
 ## Project structure
 /backend
   /cmd/api        # HTTP API
-  /cmd/worker     # Background worker
-  /internal       # Domain logic, DB access, handlers
-  /migrations     # Database migrations
+    /cmd/api/main.go
+  /cmd/worker
+    /cmd/worker/main.go
+  
+    go.mod
+    go.sum
+  
 /frontend         # Next.js app
 docker-compose.yml
 

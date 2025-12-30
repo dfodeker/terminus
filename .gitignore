@@ -1,4 +1,5 @@
 .env
+.env*
 .secrets
 .vscode/
 .idea/
@@ -9,3 +10,9 @@ build/
 coverage/
 logs/
 .obi
+
+# Go
+backend/bin/
+backend/*.exe
+backend/*.test
+backend/*.out

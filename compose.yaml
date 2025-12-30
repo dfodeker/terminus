@@ -1,0 +1,22 @@
+services:
+  api:
+    container_name: store_api
+    platform: linux/arm64
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    depends_on:
+    ports:
+      - "${API_PORT:-8080}:8080"
+    command: ["/api"]
+
+  worker:
+    container_name: store_worker
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    
+    depends_on:
+    
+    command: ["./worker"]
+
