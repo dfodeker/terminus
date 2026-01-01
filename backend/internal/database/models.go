@@ -6,13 +6,60 @@ package database
 
 import (
 	"database/sql"
+	"time"
 
 	"github.com/google/uuid"
 )
 
-type User struct {
+type Product struct {
+	ID               uuid.UUID
+	StoreID          uuid.UUID
+	Handle           string
+	Name             string
+	Description      sql.NullString
+	InventoryTracked sql.NullBool
+	Sku              sql.NullString
+	Tags             sql.NullString
+	Status           sql.NullString
+	CreatedAt        sql.NullTime
+	UpdatedAt        sql.NullTime
+}
+
+type RefreshToken struct {
+	Token     string
+	CreatedAt time.Time
+	UpdatedAt time.Time
+	UserID    uuid.UUID
+	ExpiresAt time.Time
+	RevokedAt sql.NullTime
+}
+
+type Store struct {
+	ID              uuid.UUID
+	Name            string
+	Handle          string
+	Address         sql.NullString
+	Status          sql.NullString
+	DefaultCurrency sql.NullString
+	Timezone        sql.NullString
+	Plan            sql.NullString
+	CreatedAt       sql.NullTime
+	UpdatedAt       sql.NullTime
+}
+
+type StoreMembership struct {
 	ID        uuid.UUID
-	Email     string
+	StoreID   uuid.UUID
+	UserID    uuid.UUID
+	Role      sql.NullString
 	CreatedAt sql.NullTime
 	UpdatedAt sql.NullTime
+}
+
+type User struct {
+	ID             uuid.UUID
+	Email          string
+	CreatedAt      time.Time
+	UpdatedAt      time.Time
+	HashedPassword string
 }

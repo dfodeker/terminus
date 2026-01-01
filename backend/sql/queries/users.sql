@@ -9,7 +9,7 @@ RETURNING *;
 DELETE FROM users;
 
 
--- name: getAllUsers :many
+-- name: GetAllUsers :many
 SELECT * FROM users ORDER BY created_at ASC;
 
 
