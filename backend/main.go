@@ -21,10 +21,12 @@ type apiConfig struct {
 	platform       string
 	db             *database.Queries
 	port           string
+	signingKey     string
 }
 
 func main() {
 	godotenv.Load()
+
 	port := os.Getenv("API_PORT")
 	if port == "" {
 		port = "8080"
@@ -34,10 +36,17 @@ func main() {
 	if platform == "" {
 		log.Fatal("PLATFORM MUST BE SET")
 	}
+
+	signingKey := os.Getenv("SIGNING_KEY")
+	if signingKey == "" {
+		log.Fatal("SIGNING_KEY must be set")
+	}
+
 	dbURL := os.Getenv("DB_URL")
 	if dbURL == "" {
 		log.Fatal("DB_Url Must BE SET")
 	}
+
 	db, err := sql.Open("postgres", dbURL)
 	if err != nil {
 		log.Fatalf("Error Loading DB, %s", err)
@@ -46,9 +55,10 @@ func main() {
 	dbQueries := database.New(db)
 
 	apiCfg := apiConfig{
-		db:       dbQueries,
-		platform: platform,
-		port:     port,
+		db:         dbQueries,
+		platform:   platform,
+		port:       port,
+		signingKey: signingKey,
 	}
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)
@@ -56,8 +66,14 @@ func main() {
 
 	r.Get("/", homeHandler)
 	r.Get("/health", healthHandler)
+
 	r.Post("/users", apiCfg.CreateUserHandler)
 	r.Get("/users", apiCfg.handlerGetUsers)
+
+	r.Post("/login", apiCfg.handlerLoginUsers)
+	r.Post("/refresh", apiCfg.handlerRefresh)
+	r.Post("/revoke", apiCfg.handlerRevoke)
+
 	r.Post("/admin/reset", apiCfg.handlerReset)
 
 	srv := &http.Server{
