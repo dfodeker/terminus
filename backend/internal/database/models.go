@@ -38,13 +38,13 @@ type Store struct {
 	ID              uuid.UUID
 	Name            string
 	Handle          string
-	Address         sql.NullString
-	Status          sql.NullString
-	DefaultCurrency sql.NullString
-	Timezone        sql.NullString
-	Plan            sql.NullString
-	CreatedAt       sql.NullTime
-	UpdatedAt       sql.NullTime
+	Address         string
+	Status          string
+	DefaultCurrency string
+	Timezone        string
+	Plan            string
+	CreatedAt       time.Time
+	UpdatedAt       time.Time
 }
 
 type StoreMembership struct {

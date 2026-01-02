@@ -70,6 +70,8 @@ func main() {
 	r.Post("/users", apiCfg.CreateUserHandler)
 	r.Get("/users", apiCfg.handlerGetUsers)
 
+	r.Get("/stores", apiCfg.handlerGetStores)
+
 	r.Post("/login", apiCfg.handlerLoginUsers)
 	r.Post("/refresh", apiCfg.handlerRefresh)
 	r.Post("/revoke", apiCfg.handlerRevoke)

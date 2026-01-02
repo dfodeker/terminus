@@ -8,7 +8,7 @@ RETURNING *;
 -- name: DeleteAllStores :exec
 DELETE FROM stores;
 
--- name: GetAllStores :many
+-- name: GetStores :many
 SELECT * FROM stores ORDER BY created_at ASC;
 
 

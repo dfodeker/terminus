@@ -7,7 +7,6 @@ package database
 
 import (
 	"context"
-	"database/sql"
 
 	"github.com/google/uuid"
 )
@@ -21,11 +20,11 @@ RETURNING id, name, handle, address, status, default_currency, timezone, plan, c
 type CreateStoreParams struct {
 	Name            string
 	Handle          string
-	Address         sql.NullString
-	Status          sql.NullString
-	DefaultCurrency sql.NullString
-	Timezone        sql.NullString
-	Plan            sql.NullString
+	Address         string
+	Status          string
+	DefaultCurrency string
+	Timezone        string
+	Plan            string
 }
 
 func (q *Queries) CreateStore(ctx context.Context, arg CreateStoreParams) (Store, error) {
@@ -63,12 +62,34 @@ func (q *Queries) DeleteAllStores(ctx context.Context) error {
 	return err
 }
 
-const getAllStores = `-- name: GetAllStores :many
+const getStoreByHandle = `-- name: GetStoreByHandle :one
+SELECT id, name, handle, address, status, default_currency, timezone, plan, created_at, updated_at FROM stores WHERE handle = $1
+`
+
+func (q *Queries) GetStoreByHandle(ctx context.Context, handle string) (Store, error) {
+	row := q.db.QueryRowContext(ctx, getStoreByHandle, handle)
+	var i Store
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Handle,
+		&i.Address,
+		&i.Status,
+		&i.DefaultCurrency,
+		&i.Timezone,
+		&i.Plan,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getStores = `-- name: GetStores :many
 SELECT id, name, handle, address, status, default_currency, timezone, plan, created_at, updated_at FROM stores ORDER BY created_at ASC
 `
 
-func (q *Queries) GetAllStores(ctx context.Context) ([]Store, error) {
-	rows, err := q.db.QueryContext(ctx, getAllStores)
+func (q *Queries) GetStores(ctx context.Context) ([]Store, error) {
+	rows, err := q.db.QueryContext(ctx, getStores)
 	if err != nil {
 		return nil, err
 	}
@@ -99,28 +120,6 @@ func (q *Queries) GetAllStores(ctx context.Context) ([]Store, error) {
 		return nil, err
 	}
 	return items, nil
-}
-
-const getStoreByHandle = `-- name: GetStoreByHandle :one
-SELECT id, name, handle, address, status, default_currency, timezone, plan, created_at, updated_at FROM stores WHERE handle = $1
-`
-
-func (q *Queries) GetStoreByHandle(ctx context.Context, handle string) (Store, error) {
-	row := q.db.QueryRowContext(ctx, getStoreByHandle, handle)
-	var i Store
-	err := row.Scan(
-		&i.ID,
-		&i.Name,
-		&i.Handle,
-		&i.Address,
-		&i.Status,
-		&i.DefaultCurrency,
-		&i.Timezone,
-		&i.Plan,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-	)
-	return i, err
 }
 
 const updateStore = `-- name: UpdateStore :one
