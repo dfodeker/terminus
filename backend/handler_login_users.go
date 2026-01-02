@@ -32,6 +32,7 @@ func (cfg *apiConfig) handlerLoginUsers(w http.ResponseWriter, r *http.Request) 
 	err := decoder.Decode(&params)
 	if err != nil {
 		respondWithError(w, http.StatusBadRequest, "bad request", err)
+		return
 	}
 
 	email := params.Email
@@ -44,12 +45,14 @@ func (cfg *apiConfig) handlerLoginUsers(w http.ResponseWriter, r *http.Request) 
 	user, err := cfg.db.GetUserByEmail(r.Context(), email)
 	if err != nil {
 		respondWithError(w, http.StatusUnauthorized, "incorrect email or password", err)
+		return
 	}
 
 	//compare password
 	err = auth.CheckPasswordHash(params.Password, user.HashedPassword)
 	if err != nil {
 		respondWithError(w, http.StatusUnauthorized, "incorrect email of password", err)
+		return
 
 	}
 	refreshTime := time.Now().Add(60 * 24 * time.Hour)
@@ -57,11 +60,13 @@ func (cfg *apiConfig) handlerLoginUsers(w http.ResponseWriter, r *http.Request) 
 	refreshToken, err := auth.MakeRefreshToken()
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "internal server error", err)
+		return
 	}
 
 	accessToken, err := auth.MakeJWT(user.ID, cfg.signingKey, time.Hour)
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "internal server error", err)
+		return
 	}
 
 	_, err = cfg.db.CreateRefreshToken(r.Context(), database.CreateRefreshTokenParams{
@@ -72,6 +77,7 @@ func (cfg *apiConfig) handlerLoginUsers(w http.ResponseWriter, r *http.Request) 
 
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "unable to generate token", err)
+		return
 	}
 	respondWithJSON(w, http.StatusOK, response{
 		User: User{

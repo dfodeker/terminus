@@ -1,22 +1,37 @@
 services:
+  prometheus:
+    image: prom/prometheus:latest
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus
+ 
   api:
-    container_name: store_api
-    platform: linux/arm64
+    container_name: terminus_backend
+    env_file:
+      - backend/.env
     build:
       context: .
       dockerfile: backend/Dockerfile
-    depends_on:
+    image: terminus-api:dev
     ports:
-      - "${API_PORT:-8080}:8080"
-    command: ["/api"]
+      - "8080:8080"
+    command: ["./api"]
 
   worker:
     container_name: store_worker
+    env_file:
+      - backend/.env
     build:
       context: .
       dockerfile: backend/Dockerfile
-    
-    depends_on:
     
     command: ["./worker"]
 

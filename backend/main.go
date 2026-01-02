@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"log"
@@ -11,11 +12,14 @@ import (
 	"time"
 
 	"github.com/dfodeker/terminus/internal/database"
+	"github.com/dfodeker/terminus/internal/metrics"
 	mw "github.com/dfodeker/terminus/middleware"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 type apiConfig struct {
@@ -24,6 +28,7 @@ type apiConfig struct {
 	db             *database.Queries
 	port           string
 	signingKey     string
+	sqlDB          *sql.DB
 }
 
 func main() {
@@ -55,14 +60,19 @@ func main() {
 	}
 	defer db.Close()
 	dbQueries := database.New(db)
+	sqlDB, err := sql.Open("postgres", dbURL)
+	if err != nil {
+		log.Fatalf("Error Loading DBConn, %s", err)
+	}
 
 	apiCfg := apiConfig{
 		db:         dbQueries,
 		platform:   platform,
 		port:       port,
+		sqlDB:      sqlDB,
 		signingKey: signingKey,
 	}
-
+	metrics.Register(prometheus.DefaultRegisterer)
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
 		Level: slog.LevelInfo,
 	}))
@@ -71,7 +81,7 @@ func main() {
 	// r.Use(middleware.Logger)
 	// r.Use(middleware.Recoverer)
 	r.Use(mw.RequestID)
-
+	r.Use(mw.Metrics)
 	if apiCfg.platform == "dev" {
 		r.Use(middleware.Logger) // colored, pretty
 	} else {
@@ -80,7 +90,8 @@ func main() {
 
 	r.Mount("/debug", middleware.Profiler())
 	r.Get("/", homeHandler)
-	r.Get("/health", healthHandler)
+	r.Get("/health", apiCfg.healthHandler)
+	r.Get("/metrics", promhttp.Handler().ServeHTTP)
 
 	r.Post("/users", apiCfg.CreateUserHandler)
 	r.Get("/users", apiCfg.handlerGetUsers)
@@ -108,8 +119,16 @@ func main() {
 func homeHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("You've hit our application"))
 }
-func healthHandler(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("content-type", "text/plain")
+func (cfg *apiConfig) healthHandler(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), 1*time.Second)
+	defer cancel()
+
+	if err := cfg.sqlDB.PingContext(ctx); err != nil {
+		// 503 signals “unhealthy”
+		http.Error(w, "db: unavailable", http.StatusServiceUnavailable)
+		return
+	}
+
 	w.WriteHeader(http.StatusOK)
-	_, _ = w.Write([]byte("ok"))
+	w.Write([]byte("ok"))
 }
