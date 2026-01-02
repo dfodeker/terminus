@@ -4,12 +4,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"log/slog"
 	"net/http"
 	"net/mail"
 	"time"
 
 	"github.com/dfodeker/terminus/internal/auth"
 	"github.com/dfodeker/terminus/internal/database"
+	"github.com/dfodeker/terminus/middleware"
 	"github.com/google/uuid"
 )
 
@@ -21,6 +23,8 @@ type User struct {
 }
 
 func (cfg *apiConfig) CreateUserHandler(w http.ResponseWriter, r *http.Request) {
+	reqID := middleware.GetRequestID(r.Context())
+	slog.InfoContext(r.Context(), "creating user", "request_id", reqID)
 	type parameters struct {
 		Email    string `json:"email"`
 		Password string `json:"password"`

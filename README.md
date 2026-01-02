@@ -1,10 +1,12 @@
 # Terminus
 
-This project is a small but serious backend system built to practice and demonstrate how production services behave under retries, failures, and changing requirements.
+This project is a deliberately small but serious backend system designed to model how real production services behave under stress, change, and failure.
 
-It looks like a simple store on the surface, but the focus is on backend correctness and system design rather than UI or product features.
+At first glance, it looks like a simple store. Under the hood, it is an event-driven, multi-tenant backend that explores correctness, resilience, and operational discipline rather than surface-level product features.
 
-The backend is written in Go and models an event-driven checkout flow with idempotency, async processing, and feature flags that actually change behavior. A lightweight Next.js frontend is included to make the system easy to demo and reason about.
+The backend is written in Go and implements an asynchronous checkout flow with idempotency, retries, background processing, and feature flags that genuinely alter runtime behavior. A lightweight Next.js frontend exists only to make the system easier to demo, inspect, and reason about—it is not the focus.
+
+As the system evolved, it grew into something closer to a “Shopify-lite” backend: capable of serving multiple stores, handling real scaling concerns, and supporting analytics, fault detection, and load testing. The goal is not completeness, but realism.
 
 ---
 
@@ -12,15 +14,31 @@ The backend is written in Go and models an event-driven checkout flow with idemp
 
 ## Why this project exists
 
-Most side projects stop at CRUD. This one intentionally goes a step further and focuses on problems that show up in real systems:
+ This project intentionally goes further than a CRUD application.
 
-- What happens when requests are retried?
-- How do you safely process work asynchronously?
-- How do you avoid double-charging or overselling?
-- How do you roll out behavior changes without redeploying?
+The project exists to practice and demonstrate the kinds of problems that show up in real backend systems:
 
-The goal is not to build a full ecommerce product, but to model the kinds of patterns and tradeoffs used in larger production backends.
+Requests are retried.
 
+Work is processed asynchronously.
+
+Events arrive more than once—or not at all.
+
+Requirements change after code is already deployed.
+
+Systems must scale, degrade gracefully, and remain observable.
+
+Instead of optimizing for features or polish, the system optimizes for correctness under failure. It asks questions like:
+
+What happens if the same checkout is processed twice?
+
+How do you guarantee idempotency across async boundaries?
+
+How do you roll out behavior changes safely without redeploying?
+
+How do you detect and reason about faults before users report them?
+
+How does a multi-tenant system fail, and how do you see it happening?
 ---
 
 ## High-level architecture

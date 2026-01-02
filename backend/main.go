@@ -4,12 +4,14 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"sync/atomic"
 	"time"
 
 	"github.com/dfodeker/terminus/internal/database"
+	mw "github.com/dfodeker/terminus/middleware"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/joho/godotenv"
@@ -60,10 +62,23 @@ func main() {
 		port:       port,
 		signingKey: signingKey,
 	}
-	r := chi.NewRouter()
-	r.Use(middleware.Logger)
-	r.Use(middleware.Recoverer)
 
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
+		Level: slog.LevelInfo,
+	}))
+	slog.SetDefault(logger)
+	r := chi.NewRouter()
+	// r.Use(middleware.Logger)
+	// r.Use(middleware.Recoverer)
+	r.Use(mw.RequestID)
+
+	if apiCfg.platform == "dev" {
+		r.Use(middleware.Logger) // colored, pretty
+	} else {
+		r.Use(mw.RequestLogger(logger)) // structured for prod
+	}
+
+	r.Mount("/debug", middleware.Profiler())
 	r.Get("/", homeHandler)
 	r.Get("/health", healthHandler)
 

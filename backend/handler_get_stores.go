@@ -2,10 +2,12 @@ package main
 
 import (
 	"log"
+	"log/slog"
 	"net/http"
 	"time"
 
 	"github.com/dfodeker/terminus/internal/auth"
+	"github.com/dfodeker/terminus/middleware"
 	"github.com/google/uuid"
 )
 
@@ -25,6 +27,8 @@ type Store struct {
 //we can extract this auth function we're about to write somewhere else
 
 func (cfg *apiConfig) handlerGetStores(w http.ResponseWriter, r *http.Request) {
+	reqID := middleware.GetRequestID(r.Context())
+	slog.InfoContext(r.Context(), "requesting resource : stores", "request_id", reqID)
 	bearerToken, err := auth.GetBearerToken(r.Header)
 	if err != nil {
 		respondWithError(w, http.StatusUnauthorized, "Authentication credentials are missing or invalid", err)

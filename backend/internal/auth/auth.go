@@ -5,7 +5,6 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -106,7 +105,7 @@ func GetBearerToken(headers http.Header) (string, error) {
 	if tokenString == "" {
 		return "", errors.New("missing bearer token")
 	}
-	log.Printf("returning token: %s", tokenString)
+	//log.Printf("returning token: %s", tokenString)
 	return tokenString, nil
 }
 
@@ -135,7 +134,7 @@ func GetAPIKey(headers http.Header) (string, error) {
 	if tokenString == "" {
 		return "", errors.New("missing ApiKey ")
 	}
-	log.Printf("returning token: %s", tokenString)
+	//log.Printf("returning token: %s", tokenString)
 	return tokenString, nil
 
 }
