@@ -1,6 +1,7 @@
 package main
 
 import (
+	"log"
 	"net/http"
 	"time"
 
@@ -47,6 +48,8 @@ func (cfg *apiConfig) handlerRevoke(w http.ResponseWriter, r *http.Request) {
 	}
 
 	_, err = cfg.db.RevokeRefreshToken(r.Context(), refreshToken)
+	log.Printf("err: %d", err)
+	log.Printf("token : %s", refreshToken)
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Couldn't revoke session", err)
 		return

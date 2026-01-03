@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/dfodeker/terminus/internal/auth"
 	"github.com/dfodeker/terminus/middleware"
 	"github.com/google/uuid"
 )
@@ -29,14 +28,9 @@ type Store struct {
 func (cfg *apiConfig) handlerGetStores(w http.ResponseWriter, r *http.Request) {
 	reqID := middleware.GetRequestID(r.Context())
 	slog.InfoContext(r.Context(), "requesting resource : stores", "request_id", reqID)
-	bearerToken, err := auth.GetBearerToken(r.Header)
-	if err != nil {
-		respondWithError(w, http.StatusUnauthorized, "Authentication credentials are missing or invalid", err)
-		return
-	}
-	user, err := auth.ValidateJWT(bearerToken, cfg.signingKey)
-	if err != nil {
-		respondWithError(w, http.StatusUnauthorized, "Authentication credentials are invalid.", err)
+	user, ok := userFromContext(r.Context())
+	if !ok {
+		respondWithError(w, http.StatusUnauthorized, "Authentication required", nil)
 		return
 	}
 	log.Println(user)
@@ -45,6 +39,7 @@ func (cfg *apiConfig) handlerGetStores(w http.ResponseWriter, r *http.Request) {
 	stores, err := cfg.db.GetStores(r.Context())
 	if err != nil {
 		respondWithError(w, http.StatusNotFound, "unable to get stores", err)
+		return
 	}
 	for _, store := range stores {
 		response = append(response, Store{
