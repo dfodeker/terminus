@@ -93,7 +93,7 @@ func main() {
 	r.Get("/health", apiCfg.healthHandler)
 	r.Get("/metrics", promhttp.Handler().ServeHTTP)
 
-	r.Route("/api", func(r chi.Router) {
+	r.Route("/api/v1", func(r chi.Router) {
 
 		r.Post("/users", apiCfg.CreateUserHandler)
 		r.Get("/users", apiCfg.handlerGetUsers)
@@ -101,8 +101,16 @@ func main() {
 		r.Group(func(r chi.Router) {
 			r.Use(apiCfg.requireAuth)
 
-			r.Post("/stores", apiCfg.handlerCreateStore)
-			r.Get("/stores", apiCfg.handlerGetStores)
+			r.Route("/stores", func(r chi.Router) {
+				r.Post("/", apiCfg.handlerCreateStore)
+				r.Get("/", apiCfg.handlerGetStores)
+				r.Route("/{store}", func(r chi.Router) {
+					r.Post("/products", apiCfg.handlerCreateProducts)
+					r.Get("/products", apiCfg.handlerListProducts)
+				})
+
+			})
+
 			// Add more protected routes here and they all get auth automatically.
 		})
 	})

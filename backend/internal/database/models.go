@@ -17,12 +17,12 @@ type Product struct {
 	Handle           string
 	Name             string
 	Description      sql.NullString
-	InventoryTracked sql.NullBool
+	InventoryTracked bool
 	Sku              sql.NullString
 	Tags             sql.NullString
-	Status           sql.NullString
-	CreatedAt        sql.NullTime
-	UpdatedAt        sql.NullTime
+	Status           string
+	CreatedAt        time.Time
+	UpdatedAt        time.Time
 }
 
 type RefreshToken struct {
