@@ -8,6 +8,7 @@ package database
 import (
 	"context"
 	"database/sql"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -124,6 +125,67 @@ ORDER BY created_at ASC
 
 func (q *Queries) GetProductsByStore(ctx context.Context, storeID uuid.UUID) ([]Product, error) {
 	rows, err := q.db.QueryContext(ctx, getProductsByStore, storeID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Product
+	for rows.Next() {
+		var i Product
+		if err := rows.Scan(
+			&i.ID,
+			&i.StoreID,
+			&i.Handle,
+			&i.Name,
+			&i.Description,
+			&i.InventoryTracked,
+			&i.Sku,
+			&i.Tags,
+			&i.Status,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getProductsByStorePaginated = `-- name: GetProductsByStorePaginated :many
+SELECT id, store_id, handle, name, description, inventory_tracked, sku, tags, status, created_at, updated_at
+FROM products
+WHERE store_id = $1
+  AND (
+    $2::boolean = false
+    OR (created_at, id) < ($3::timestamptz, $4::uuid)
+  )
+ORDER BY created_at DESC, id DESC
+LIMIT $5
+`
+
+type GetProductsByStorePaginatedParams struct {
+	StoreID uuid.UUID
+	Column2 bool
+	Column3 time.Time
+	Column4 uuid.UUID
+	Limit   int32
+}
+
+func (q *Queries) GetProductsByStorePaginated(ctx context.Context, arg GetProductsByStorePaginatedParams) ([]Product, error) {
+	rows, err := q.db.QueryContext(ctx, getProductsByStorePaginated,
+		arg.StoreID,
+		arg.Column2,
+		arg.Column3,
+		arg.Column4,
+		arg.Limit,
+	)
 	if err != nil {
 		return nil, err
 	}

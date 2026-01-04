@@ -18,6 +18,7 @@ type RefershTokenParams struct {
 }
 
 func (cfg *apiConfig) handlerLoginUsers(w http.ResponseWriter, r *http.Request) {
+
 	type response struct {
 		User
 		Token        string `json:"token"`

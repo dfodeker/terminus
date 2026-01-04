@@ -16,6 +16,7 @@ import (
 	mw "github.com/dfodeker/terminus/middleware"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/go-chi/httprate"
 	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
 	"github.com/prometheus/client_golang/prometheus"
@@ -87,6 +88,11 @@ func main() {
 	} else {
 		r.Use(mw.RequestLogger(logger)) // structured for prod
 	}
+	r.Use(httprate.Limit(
+		5,             // requests
+		1*time.Second, // per duration
+		httprate.WithKeyFuncs(httprate.KeyByIP, httprate.KeyByEndpoint),
+	))
 
 	r.Mount("/debug", middleware.Profiler())
 	r.Get("/", homeHandler)

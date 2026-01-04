@@ -12,6 +12,20 @@ ORDER BY created_at ASC;
 
 
 
+-- name: GetProductsByStorePaginated :many
+SELECT id, store_id, handle, name, description, inventory_tracked, sku, tags, status, created_at, updated_at
+FROM products
+WHERE store_id = $1
+  AND (
+    $2::boolean = false
+    OR (created_at, id) < ($3::timestamptz, $4::uuid)
+  )
+ORDER BY created_at DESC, id DESC
+LIMIT $5;
+
+
+
+
 
 -- name: GetProductByHandle :one
 SELECT * FROM products
