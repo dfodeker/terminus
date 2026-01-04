@@ -30,6 +30,7 @@ func (cfg *apiConfig) handlerGetStores(w http.ResponseWriter, r *http.Request) {
 	slog.InfoContext(r.Context(), "requesting resource : stores", "request_id", reqID)
 	user, ok := userFromContext(r.Context())
 	if !ok {
+
 		respondWithError(w, http.StatusUnauthorized, "Authentication required", nil)
 		return
 	}

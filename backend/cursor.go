@@ -81,30 +81,30 @@ func (c CursorCodec[T]) Decode(s string) (v T, ok bool, err error) {
 	return v, true, nil
 }
 
-type userCursor struct {
-	CreatedAt string `json:"created_at"`
-	ID        string `json:"id"`
-}
+// type userCursor struct {
+// 	CreatedAt string `json:"created_at"`
+// 	ID        string `json:"id"`
+// }
 
-func encodeCursor(c userCursor) (string, error) {
-	b, err := json.Marshal(c)
-	if err != nil {
-		return "", err
-	}
-	return base64.RawURLEncoding.EncodeToString(b), nil
-}
+// func encodeCursor(c userCursor) (string, error) {
+// 	b, err := json.Marshal(c)
+// 	if err != nil {
+// 		return "", err
+// 	}
+// 	return base64.RawURLEncoding.EncodeToString(b), nil
+// }
 
-func decodeCursor(s string) (userCursor, error) {
-	if s == "" {
-		return userCursor{}, nil
-	}
-	b, err := base64.RawURLEncoding.DecodeString(s)
-	if err != nil {
-		return userCursor{}, errors.New("invalid cursor")
-	}
-	var c userCursor
-	if err := json.Unmarshal(b, &c); err != nil {
-		return userCursor{}, errors.New("invalid cursor")
-	}
-	return c, nil
-}
+// func decodeCursor(s string) (userCursor, error) {
+// 	if s == "" {
+// 		return userCursor{}, nil
+// 	}
+// 	b, err := base64.RawURLEncoding.DecodeString(s)
+// 	if err != nil {
+// 		return userCursor{}, errors.New("invalid cursor")
+// 	}
+// 	var c userCursor
+// 	if err := json.Unmarshal(b, &c); err != nil {
+// 		return userCursor{}, errors.New("invalid cursor")
+// 	}
+// 	return c, nil
+// }
