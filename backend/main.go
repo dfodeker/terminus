@@ -125,6 +125,31 @@ func main() {
 					r.Route("/stores", func(r chi.Router) {
 						r.Post("/", apiCfg.handlerTenantStoresCreate)
 						r.Get("/", apiCfg.handlerTenantStoresList)
+
+						r.Route("/{storeID}", func(r chi.Router) {
+							// Products
+							r.Route("/products", func(r chi.Router) {
+								r.Post("/", apiCfg.handlerTenantProductCreate)
+								r.Get("/", apiCfg.handlerTenantProductsList)
+
+								r.Route("/{productID}", func(r chi.Router) {
+									r.Get("/", apiCfg.handlerTenantProductGet)
+									r.Put("/", apiCfg.handlerTenantProductUpdate)
+									r.Delete("/", apiCfg.handlerTenantProductDelete)
+
+									// Variants
+									r.Route("/variants", func(r chi.Router) {
+										r.Post("/", apiCfg.handlerTenantVariantCreate)
+										r.Get("/", apiCfg.handlerTenantVariantsList)
+
+										r.Route("/{variantID}", func(r chi.Router) {
+											r.Put("/", apiCfg.handlerTenantVariantUpdate)
+											r.Delete("/", apiCfg.handlerTenantVariantDelete)
+										})
+									})
+								})
+							})
+						})
 					})
 
 					// Members management

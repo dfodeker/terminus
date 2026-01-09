@@ -117,6 +117,59 @@ func (q *Queries) GetProductByHandle(ctx context.Context, arg GetProductByHandle
 	return i, err
 }
 
+const getProductByID = `-- name: GetProductByID :one
+SELECT id, store_id, handle, name, description, inventory_tracked, sku, tags, status, created_at, updated_at FROM products
+WHERE id = $1 AND store_id = $2
+`
+
+type GetProductByIDParams struct {
+	ID      uuid.UUID
+	StoreID uuid.UUID
+}
+
+func (q *Queries) GetProductByID(ctx context.Context, arg GetProductByIDParams) (Product, error) {
+	row := q.db.QueryRowContext(ctx, getProductByID, arg.ID, arg.StoreID)
+	var i Product
+	err := row.Scan(
+		&i.ID,
+		&i.StoreID,
+		&i.Handle,
+		&i.Name,
+		&i.Description,
+		&i.InventoryTracked,
+		&i.Sku,
+		&i.Tags,
+		&i.Status,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getProductByIDOnly = `-- name: GetProductByIDOnly :one
+SELECT id, store_id, handle, name, description, inventory_tracked, sku, tags, status, created_at, updated_at FROM products
+WHERE id = $1
+`
+
+func (q *Queries) GetProductByIDOnly(ctx context.Context, id uuid.UUID) (Product, error) {
+	row := q.db.QueryRowContext(ctx, getProductByIDOnly, id)
+	var i Product
+	err := row.Scan(
+		&i.ID,
+		&i.StoreID,
+		&i.Handle,
+		&i.Name,
+		&i.Description,
+		&i.InventoryTracked,
+		&i.Sku,
+		&i.Tags,
+		&i.Status,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const getProductsByStore = `-- name: GetProductsByStore :many
 SELECT id, store_id, handle, name, description, inventory_tracked, sku, tags, status, created_at, updated_at FROM products
 WHERE store_id = $1

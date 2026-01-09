@@ -52,4 +52,12 @@ DELETE FROM products
 WHERE id = $1 AND store_id = $2
 RETURNING *;
 
+-- name: GetProductByID :one
+SELECT * FROM products
+WHERE id = $1 AND store_id = $2;
+
+-- name: GetProductByIDOnly :one
+SELECT * FROM products
+WHERE id = $1;
+
 
