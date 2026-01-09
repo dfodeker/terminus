@@ -12,8 +12,8 @@ import (
 	"github.com/google/uuid"
 )
 
-var ownerDesc = "Owner of the tenant with all permissions and access to all stores"
-var ownerPermissions = []string{"tenant:owner", "tenant:manage_users", "tenant:invite_users", "tenant:manage"}
+const ownerRoleName = "Owner"
+const ownerRoleDesc = "Full access to all tenant resources, stores, and settings"
 
 type TenantResponse struct {
 	ID        uuid.UUID `json:"id"`
@@ -91,11 +91,11 @@ func (cfg *apiConfig) handlerTenantsCreate(w http.ResponseWriter, r *http.Reques
 		"request_id", reqID,
 	)
 
-	//we need to actually create the role of the store
-	description := sql.NullString{String: ownerDesc, Valid: ownerDesc != ""}
+	// Create Owner role for the tenant
+	description := sql.NullString{String: ownerRoleDesc, Valid: true}
 	role, err := cfg.db.CreateRole(r.Context(), database.CreateRoleParams{
 		TenantID:    tenant.ID,
-		Name:        params.Name,
+		Name:        ownerRoleName,
 		Description: description,
 	})
 	if err != nil {
@@ -108,22 +108,19 @@ func (cfg *apiConfig) handlerTenantsCreate(w http.ResponseWriter, r *http.Reques
 		respondWithError(w, http.StatusInternalServerError, "Unable to create role", err)
 		return
 	}
-	// // a good idea to assign the owner of the tenant as the owner
-	// 	assignOwnerRole, err:= cfg.db.AssignRoleToTenantUser(r.Context(), database.AssignRoleToTenantUserParams{
-	// 		TenantUserID: tenantUser.ID,
-	// 		RoleID: ,
-
-	// 	})
-
-	assignedPermissions := []string{}
-	if len(ownerPermissions) > 0 {
-		permissions, err := cfg.db.GetPermissionsByKeys(r.Context(), ownerPermissions)
-		if err != nil {
-			slog.WarnContext(r.Context(), "tenant role creation: error fetching permissions",
+	// Assign ALL permissions to Owner role
+	permissions, err := cfg.db.GetAllPermissions(r.Context())
+	if err!=nil{
+		slog.WarnContext(r.Context(), "tenant role creation: error fetching permissions",
 				"request_id", reqID,
 				"error", err,
 			)
-		} else {
+			respondWithError(w, http.StatusInternalServerError, "Unable to create get permissions for role", err)
+		return
+	}
+	assignedPermissions := []string{}
+	if len(permissions) > 0 {
+		
 			for _, perm := range permissions {
 				err = cfg.db.AssignPermissionToRole(r.Context(), database.AssignPermissionToRoleParams{
 					RoleID:       role.ID,
@@ -140,7 +137,7 @@ func (cfg *apiConfig) handlerTenantsCreate(w http.ResponseWriter, r *http.Reques
 					assignedPermissions = append(assignedPermissions, perm.Key)
 				}
 			}
-		}
+		
 	}
 
 	slog.InfoContext(r.Context(), "tenant role created successfully",

@@ -107,6 +107,31 @@ func main() {
 		r.Group(func(r chi.Router) {
 			r.Use(apiCfg.requireAuth)
 
+			r.Route("/products", func(r chi.Router) {
+				r.Post("/", apiCfg.handlerTenantProductCreate)
+				r.Get("/", apiCfg.handlerTenantProductsList)
+
+				r.Route("/{productID}", func(r chi.Router) {
+					r.Get("/", apiCfg.handlerTenantProductGet)
+					r.Put("/", apiCfg.handlerTenantProductUpdate)
+					r.Delete("/", apiCfg.handlerTenantProductDelete)
+					r.Route("/variants", func(r chi.Router) {
+						r.Post("/", apiCfg.handlerTenantVariantCreate)
+						r.Get("/", apiCfg.handlerTenantVariantsList)
+						r.Route("/{variantID}", func(r chi.Router) {
+							r.Put("/", apiCfg.handlerTenantVariantUpdate)
+							r.Delete("/", apiCfg.handlerTenantVariantDelete)
+						})
+					})
+				})
+
+			})
+			r.Route("/variants", func(r chi.Router) {
+				r.Route("/{variantID}", func(r chi.Router) {
+					r.Get("/", apiCfg.handlerVariantGet)
+				})
+				r.Get("/", apiCfg.handlerTenantVariantsList)
+			})
 			r.Route("/stores", func(r chi.Router) {
 				r.Post("/", apiCfg.handlerCreateStore)
 				r.Get("/", apiCfg.handlerGetStores)
@@ -140,7 +165,6 @@ func main() {
 									// Variants
 									r.Route("/variants", func(r chi.Router) {
 										r.Post("/", apiCfg.handlerTenantVariantCreate)
-										r.Get("/", apiCfg.handlerTenantVariantsList)
 
 										r.Route("/{variantID}", func(r chi.Router) {
 											r.Put("/", apiCfg.handlerTenantVariantUpdate)
