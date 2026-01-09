@@ -114,8 +114,45 @@ func main() {
 					r.Post("/products", apiCfg.handlerCreateProducts)
 					r.Get("/products", apiCfg.handlerListProducts)
 				})
-
 			})
+
+			r.Route("/tenants", func(r chi.Router) {
+				r.Post("/", apiCfg.handlerTenantsCreate)
+				r.Get("/", apiCfg.handlerTenantsList)
+
+				r.Route("/{tenantID}", func(r chi.Router) {
+					// Stores under tenant
+					r.Route("/stores", func(r chi.Router) {
+						r.Post("/", apiCfg.handlerTenantStoresCreate)
+						r.Get("/", apiCfg.handlerTenantStoresList)
+					})
+
+					// Members management
+					r.Route("/members", func(r chi.Router) {
+						r.Get("/", apiCfg.handlerTenantMembersList)
+						r.Post("/invite", apiCfg.handlerTenantMembersInvite)
+
+						r.Route("/{memberID}/roles", func(r chi.Router) {
+							r.Post("/", apiCfg.handlerTenantMemberAssignRole)
+							r.Delete("/{roleID}", apiCfg.handlerTenantMemberRemoveRole)
+						})
+					})
+
+					// Roles management
+					r.Route("/roles", func(r chi.Router) {
+						r.Post("/", apiCfg.handlerTenantRolesCreate)
+						r.Get("/", apiCfg.handlerTenantRolesList)
+
+						r.Route("/{roleID}/permissions", func(r chi.Router) {
+							r.Post("/", apiCfg.handlerTenantRoleAddPermission)
+							r.Delete("/{permissionKey}", apiCfg.handlerTenantRoleRemovePermission)
+						})
+					})
+				})
+			})
+
+			// Global permissions list (available to all authenticated users)
+			r.Get("/permissions", apiCfg.handlerPermissionsList)
 
 			// Add more protected routes here and they all get auth automatically.
 		})

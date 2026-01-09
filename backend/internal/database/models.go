@@ -6,10 +6,19 @@ package database
 
 import (
 	"database/sql"
+	"encoding/json"
 	"time"
 
 	"github.com/google/uuid"
 )
+
+type Permission struct {
+	ID          uuid.UUID
+	Key         string
+	Description sql.NullString
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
+}
 
 type Product struct {
 	ID               uuid.UUID
@@ -25,6 +34,22 @@ type Product struct {
 	UpdatedAt        time.Time
 }
 
+type ProductVariant struct {
+	ID             uuid.UUID
+	TenantID       uuid.UUID
+	StoreID        uuid.UUID
+	ProductID      uuid.UUID
+	Sku            sql.NullString
+	Barcode        sql.NullString
+	Title          string
+	PriceCents     int32
+	CompareAtCents sql.NullInt32
+	OptionValues   json.RawMessage
+	Status         string
+	CreatedAt      time.Time
+	UpdatedAt      time.Time
+}
+
 type RefreshToken struct {
 	Token     string
 	CreatedAt time.Time
@@ -32,6 +57,20 @@ type RefreshToken struct {
 	UserID    uuid.UUID
 	ExpiresAt time.Time
 	RevokedAt sql.NullTime
+}
+
+type Role struct {
+	ID          uuid.UUID
+	TenantID    uuid.UUID
+	Name        string
+	Description sql.NullString
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
+}
+
+type RolePermission struct {
+	RoleID       uuid.UUID
+	PermissionID uuid.UUID
 }
 
 type Store struct {
@@ -45,6 +84,7 @@ type Store struct {
 	Plan            string
 	CreatedAt       time.Time
 	UpdatedAt       time.Time
+	TenantID        uuid.NullUUID
 }
 
 type StoreMembership struct {
@@ -54,6 +94,28 @@ type StoreMembership struct {
 	Role      sql.NullString
 	CreatedAt sql.NullTime
 	UpdatedAt sql.NullTime
+}
+
+type Tenant struct {
+	ID        uuid.UUID
+	Name      string
+	Status    string
+	CreatedAt time.Time
+	UpdatedAt time.Time
+}
+
+type TenantUser struct {
+	ID        uuid.UUID
+	TenantID  uuid.UUID
+	UserID    uuid.UUID
+	Status    string
+	CreatedAt time.Time
+	UpdatedAt time.Time
+}
+
+type TenantUserRole struct {
+	TenantUserID uuid.UUID
+	RoleID       uuid.UUID
 }
 
 type User struct {

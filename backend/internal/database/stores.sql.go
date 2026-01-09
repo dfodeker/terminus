@@ -7,14 +7,15 @@ package database
 
 import (
 	"context"
+	"time"
 
 	"github.com/google/uuid"
 )
 
 const createStore = `-- name: CreateStore :one
-insert into stores (id, name, handle, address, status, default_currency, timezone, plan, created_at, updated_at)
-values (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7, now(), now())
-RETURNING id, name, handle, address, status, default_currency, timezone, plan, created_at, updated_at
+INSERT INTO stores (id, name, handle, address, status, default_currency, timezone, plan, tenant_id, created_at, updated_at)
+VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7, $8, now(), now())
+RETURNING id, name, handle, address, status, default_currency, timezone, plan, created_at, updated_at, tenant_id
 `
 
 type CreateStoreParams struct {
@@ -25,6 +26,7 @@ type CreateStoreParams struct {
 	DefaultCurrency string
 	Timezone        string
 	Plan            string
+	TenantID        uuid.NullUUID
 }
 
 func (q *Queries) CreateStore(ctx context.Context, arg CreateStoreParams) (Store, error) {
@@ -36,6 +38,7 @@ func (q *Queries) CreateStore(ctx context.Context, arg CreateStoreParams) (Store
 		arg.DefaultCurrency,
 		arg.Timezone,
 		arg.Plan,
+		arg.TenantID,
 	)
 	var i Store
 	err := row.Scan(
@@ -49,6 +52,46 @@ func (q *Queries) CreateStore(ctx context.Context, arg CreateStoreParams) (Store
 		&i.Plan,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.TenantID,
+	)
+	return i, err
+}
+
+const createStoreForTenant = `-- name: CreateStoreForTenant :one
+
+INSERT INTO stores (id, name, handle, address, status, default_currency, timezone, plan, tenant_id, created_at, updated_at)
+VALUES (gen_random_uuid(), $1, $2, '', 'active', 'USD', 'UTC', $3, $4, now(), now())
+RETURNING id, name, handle, address, status, default_currency, timezone, plan, created_at, updated_at, tenant_id
+`
+
+type CreateStoreForTenantParams struct {
+	Name     string
+	Handle   string
+	Plan     string
+	TenantID uuid.NullUUID
+}
+
+// Tenant-scoped store queries
+func (q *Queries) CreateStoreForTenant(ctx context.Context, arg CreateStoreForTenantParams) (Store, error) {
+	row := q.db.QueryRowContext(ctx, createStoreForTenant,
+		arg.Name,
+		arg.Handle,
+		arg.Plan,
+		arg.TenantID,
+	)
+	var i Store
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Handle,
+		&i.Address,
+		&i.Status,
+		&i.DefaultCurrency,
+		&i.Timezone,
+		&i.Plan,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.TenantID,
 	)
 	return i, err
 }
@@ -62,8 +105,23 @@ func (q *Queries) DeleteAllStores(ctx context.Context) error {
 	return err
 }
 
+const deleteStoreForTenant = `-- name: DeleteStoreForTenant :exec
+DELETE FROM stores
+WHERE id = $1 AND tenant_id = $2
+`
+
+type DeleteStoreForTenantParams struct {
+	ID       uuid.UUID
+	TenantID uuid.NullUUID
+}
+
+func (q *Queries) DeleteStoreForTenant(ctx context.Context, arg DeleteStoreForTenantParams) error {
+	_, err := q.db.ExecContext(ctx, deleteStoreForTenant, arg.ID, arg.TenantID)
+	return err
+}
+
 const getStoreByHandle = `-- name: GetStoreByHandle :one
-SELECT id, name, handle, address, status, default_currency, timezone, plan, created_at, updated_at FROM stores WHERE handle = $1
+SELECT id, name, handle, address, status, default_currency, timezone, plan, created_at, updated_at, tenant_id FROM stores WHERE handle = $1
 `
 
 func (q *Queries) GetStoreByHandle(ctx context.Context, handle string) (Store, error) {
@@ -80,12 +138,71 @@ func (q *Queries) GetStoreByHandle(ctx context.Context, handle string) (Store, e
 		&i.Plan,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.TenantID,
+	)
+	return i, err
+}
+
+const getStoreByTenantAndHandle = `-- name: GetStoreByTenantAndHandle :one
+SELECT id, name, handle, address, status, default_currency, timezone, plan, created_at, updated_at, tenant_id FROM stores
+WHERE tenant_id = $1 AND handle = $2
+`
+
+type GetStoreByTenantAndHandleParams struct {
+	TenantID uuid.NullUUID
+	Handle   string
+}
+
+func (q *Queries) GetStoreByTenantAndHandle(ctx context.Context, arg GetStoreByTenantAndHandleParams) (Store, error) {
+	row := q.db.QueryRowContext(ctx, getStoreByTenantAndHandle, arg.TenantID, arg.Handle)
+	var i Store
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Handle,
+		&i.Address,
+		&i.Status,
+		&i.DefaultCurrency,
+		&i.Timezone,
+		&i.Plan,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.TenantID,
+	)
+	return i, err
+}
+
+const getStoreByTenantAndID = `-- name: GetStoreByTenantAndID :one
+SELECT id, name, handle, address, status, default_currency, timezone, plan, created_at, updated_at, tenant_id FROM stores
+WHERE tenant_id = $1 AND id = $2
+`
+
+type GetStoreByTenantAndIDParams struct {
+	TenantID uuid.NullUUID
+	ID       uuid.UUID
+}
+
+func (q *Queries) GetStoreByTenantAndID(ctx context.Context, arg GetStoreByTenantAndIDParams) (Store, error) {
+	row := q.db.QueryRowContext(ctx, getStoreByTenantAndID, arg.TenantID, arg.ID)
+	var i Store
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Handle,
+		&i.Address,
+		&i.Status,
+		&i.DefaultCurrency,
+		&i.Timezone,
+		&i.Plan,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.TenantID,
 	)
 	return i, err
 }
 
 const getStores = `-- name: GetStores :many
-SELECT id, name, handle, address, status, default_currency, timezone, plan, created_at, updated_at FROM stores ORDER BY created_at ASC
+SELECT id, name, handle, address, status, default_currency, timezone, plan, created_at, updated_at, tenant_id FROM stores ORDER BY created_at ASC
 `
 
 func (q *Queries) GetStores(ctx context.Context) ([]Store, error) {
@@ -108,6 +225,123 @@ func (q *Queries) GetStores(ctx context.Context) ([]Store, error) {
 			&i.Plan,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.TenantID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getStoresByTenantID = `-- name: GetStoresByTenantID :many
+SELECT id, name, handle, address, status, default_currency, timezone, plan, created_at, updated_at, tenant_id FROM stores
+WHERE tenant_id = $1
+ORDER BY created_at DESC
+`
+
+func (q *Queries) GetStoresByTenantID(ctx context.Context, tenantID uuid.NullUUID) ([]Store, error) {
+	rows, err := q.db.QueryContext(ctx, getStoresByTenantID, tenantID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Store
+	for rows.Next() {
+		var i Store
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Handle,
+			&i.Address,
+			&i.Status,
+			&i.DefaultCurrency,
+			&i.Timezone,
+			&i.Plan,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.TenantID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getStoresByTenantIDPaginated = `-- name: GetStoresByTenantIDPaginated :many
+SELECT id, name, handle, address, status, default_currency, timezone, plan, tenant_id, created_at, updated_at
+FROM stores
+WHERE tenant_id = $1
+  AND (
+    $2::boolean = false
+    OR (created_at, id) < ($3::timestamptz, $4::uuid)
+  )
+ORDER BY created_at DESC, id DESC
+LIMIT $5
+`
+
+type GetStoresByTenantIDPaginatedParams struct {
+	TenantID uuid.NullUUID
+	Column2  bool
+	Column3  time.Time
+	Column4  uuid.UUID
+	Limit    int32
+}
+
+type GetStoresByTenantIDPaginatedRow struct {
+	ID              uuid.UUID
+	Name            string
+	Handle          string
+	Address         string
+	Status          string
+	DefaultCurrency string
+	Timezone        string
+	Plan            string
+	TenantID        uuid.NullUUID
+	CreatedAt       time.Time
+	UpdatedAt       time.Time
+}
+
+func (q *Queries) GetStoresByTenantIDPaginated(ctx context.Context, arg GetStoresByTenantIDPaginatedParams) ([]GetStoresByTenantIDPaginatedRow, error) {
+	rows, err := q.db.QueryContext(ctx, getStoresByTenantIDPaginated,
+		arg.TenantID,
+		arg.Column2,
+		arg.Column3,
+		arg.Column4,
+		arg.Limit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetStoresByTenantIDPaginatedRow
+	for rows.Next() {
+		var i GetStoresByTenantIDPaginatedRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Handle,
+			&i.Address,
+			&i.Status,
+			&i.DefaultCurrency,
+			&i.Timezone,
+			&i.Plan,
+			&i.TenantID,
+			&i.CreatedAt,
+			&i.UpdatedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -124,12 +358,12 @@ func (q *Queries) GetStores(ctx context.Context) ([]Store, error) {
 
 const updateStore = `-- name: UpdateStore :one
 UPDATE stores
-SET 
+SET
     name = $2,
     handle = $3,
     updated_at = now()
 WHERE id = $1
-RETURNING id, name, handle, address, status, default_currency, timezone, plan, created_at, updated_at
+RETURNING id, name, handle, address, status, default_currency, timezone, plan, created_at, updated_at, tenant_id
 `
 
 type UpdateStoreParams struct {
@@ -152,6 +386,63 @@ func (q *Queries) UpdateStore(ctx context.Context, arg UpdateStoreParams) (Store
 		&i.Plan,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.TenantID,
+	)
+	return i, err
+}
+
+const updateStoreForTenant = `-- name: UpdateStoreForTenant :one
+UPDATE stores
+SET
+    name = $3,
+    handle = $4,
+    address = $5,
+    status = $6,
+    default_currency = $7,
+    timezone = $8,
+    plan = $9,
+    updated_at = now()
+WHERE id = $1 AND tenant_id = $2
+RETURNING id, name, handle, address, status, default_currency, timezone, plan, created_at, updated_at, tenant_id
+`
+
+type UpdateStoreForTenantParams struct {
+	ID              uuid.UUID
+	TenantID        uuid.NullUUID
+	Name            string
+	Handle          string
+	Address         string
+	Status          string
+	DefaultCurrency string
+	Timezone        string
+	Plan            string
+}
+
+func (q *Queries) UpdateStoreForTenant(ctx context.Context, arg UpdateStoreForTenantParams) (Store, error) {
+	row := q.db.QueryRowContext(ctx, updateStoreForTenant,
+		arg.ID,
+		arg.TenantID,
+		arg.Name,
+		arg.Handle,
+		arg.Address,
+		arg.Status,
+		arg.DefaultCurrency,
+		arg.Timezone,
+		arg.Plan,
+	)
+	var i Store
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Handle,
+		&i.Address,
+		&i.Status,
+		&i.DefaultCurrency,
+		&i.Timezone,
+		&i.Plan,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.TenantID,
 	)
 	return i, err
 }
