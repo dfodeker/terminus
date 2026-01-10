@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/dfodeker/terminus/internal/database"
+	"github.com/dfodeker/terminus/internal/gid"
 	"github.com/dfodeker/terminus/middleware"
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
@@ -16,6 +17,7 @@ import (
 
 type StoreVariantResponse struct {
 	ID             uuid.UUID       `json:"id"`
+	GID            string          `json:"gid,omitempty"`
 	TenantID       uuid.UUID       `json:"tenant_id"`
 	StoreID        uuid.UUID       `json:"store_id"`
 	ProductID      uuid.UUID       `json:"product_id"`
@@ -297,7 +299,7 @@ func (cfg *apiConfig) handlerProductVariantsList(w http.ResponseWriter, r *http.
 
 	response := make([]StoreVariantResponse, 0, len(rows))
 	for _, v := range rows {
-		response = append(response, toVariantResponse(v))
+		response = append(response, toVariantResponseFromPaginatedRow(v))
 	}
 
 	slog.InfoContext(r.Context(), "variants list successful",
@@ -525,6 +527,7 @@ func (cfg *apiConfig) handlerVariantDelete(w http.ResponseWriter, r *http.Reques
 func toVariantResponse(v database.ProductVariant) StoreVariantResponse {
 	var sku, barcode *string
 	var compareAt *int32
+	var gidStr string
 
 	if v.Sku.Valid {
 		sku = &v.Sku.String
@@ -535,9 +538,49 @@ func toVariantResponse(v database.ProductVariant) StoreVariantResponse {
 	if v.CompareAtCents.Valid {
 		compareAt = &v.CompareAtCents.Int32
 	}
+	if v.Gid.Valid {
+		gidStr = gid.ProductVariantGID(uint64(v.Gid.Int64)).String()
+	}
 
 	return StoreVariantResponse{
 		ID:             v.ID,
+		GID:            gidStr,
+		TenantID:       v.TenantID,
+		StoreID:        v.StoreID,
+		ProductID:      v.ProductID,
+		SKU:            sku,
+		Barcode:        barcode,
+		Title:          v.Title,
+		PriceCents:     v.PriceCents,
+		CompareAtCents: compareAt,
+		OptionValues:   v.OptionValues,
+		Status:         v.Status,
+		CreatedAt:      v.CreatedAt,
+		UpdatedAt:      v.UpdatedAt,
+	}
+}
+
+func toVariantResponseFromPaginatedRow(v database.GetProductVariantsByProductIDPaginatedRow) StoreVariantResponse {
+	var sku, barcode *string
+	var compareAt *int32
+	var gidStr string
+
+	if v.Sku.Valid {
+		sku = &v.Sku.String
+	}
+	if v.Barcode.Valid {
+		barcode = &v.Barcode.String
+	}
+	if v.CompareAtCents.Valid {
+		compareAt = &v.CompareAtCents.Int32
+	}
+	if v.Gid.Valid {
+		gidStr = gid.ProductVariantGID(uint64(v.Gid.Int64)).String()
+	}
+
+	return StoreVariantResponse{
+		ID:             v.ID,
+		GID:            gidStr,
 		TenantID:       v.TenantID,
 		StoreID:        v.StoreID,
 		ProductID:      v.ProductID,

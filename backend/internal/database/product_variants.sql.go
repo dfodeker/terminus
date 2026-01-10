@@ -29,16 +29,17 @@ func (q *Queries) CountProductVariantsByProductID(ctx context.Context, productID
 
 const createProductVariant = `-- name: CreateProductVariant :one
 INSERT INTO product_variants (
-    id, tenant_id, store_id, product_id, sku, barcode, title,
+    id, gid, tenant_id, store_id, product_id, sku, barcode, title,
     price_cents, compare_at_cents, option_values, status, created_at, updated_at
 )
 VALUES (
-    gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, now(), now()
+    gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, now(), now()
 )
-RETURNING id, tenant_id, store_id, product_id, sku, barcode, title, price_cents, compare_at_cents, option_values, status, created_at, updated_at
+RETURNING id, tenant_id, store_id, product_id, sku, barcode, title, price_cents, compare_at_cents, option_values, status, created_at, updated_at, gid
 `
 
 type CreateProductVariantParams struct {
+	Gid            sql.NullInt64
 	TenantID       uuid.UUID
 	StoreID        uuid.UUID
 	ProductID      uuid.UUID
@@ -53,6 +54,7 @@ type CreateProductVariantParams struct {
 
 func (q *Queries) CreateProductVariant(ctx context.Context, arg CreateProductVariantParams) (ProductVariant, error) {
 	row := q.db.QueryRowContext(ctx, createProductVariant,
+		arg.Gid,
 		arg.TenantID,
 		arg.StoreID,
 		arg.ProductID,
@@ -79,6 +81,7 @@ func (q *Queries) CreateProductVariant(ctx context.Context, arg CreateProductVar
 		&i.Status,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Gid,
 	)
 	return i, err
 }
@@ -109,7 +112,7 @@ func (q *Queries) DeleteProductVariantsByProductID(ctx context.Context, productI
 }
 
 const getProductVariantByBarcode = `-- name: GetProductVariantByBarcode :one
-SELECT id, tenant_id, store_id, product_id, sku, barcode, title, price_cents, compare_at_cents, option_values, status, created_at, updated_at FROM product_variants
+SELECT id, tenant_id, store_id, product_id, sku, barcode, title, price_cents, compare_at_cents, option_values, status, created_at, updated_at, gid FROM product_variants
 WHERE store_id = $1 AND barcode = $2
 `
 
@@ -135,12 +138,40 @@ func (q *Queries) GetProductVariantByBarcode(ctx context.Context, arg GetProduct
 		&i.Status,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Gid,
+	)
+	return i, err
+}
+
+const getProductVariantByGID = `-- name: GetProductVariantByGID :one
+SELECT id, tenant_id, store_id, product_id, sku, barcode, title, price_cents, compare_at_cents, option_values, status, created_at, updated_at, gid FROM product_variants
+WHERE gid = $1
+`
+
+func (q *Queries) GetProductVariantByGID(ctx context.Context, gid sql.NullInt64) (ProductVariant, error) {
+	row := q.db.QueryRowContext(ctx, getProductVariantByGID, gid)
+	var i ProductVariant
+	err := row.Scan(
+		&i.ID,
+		&i.TenantID,
+		&i.StoreID,
+		&i.ProductID,
+		&i.Sku,
+		&i.Barcode,
+		&i.Title,
+		&i.PriceCents,
+		&i.CompareAtCents,
+		&i.OptionValues,
+		&i.Status,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.Gid,
 	)
 	return i, err
 }
 
 const getProductVariantByID = `-- name: GetProductVariantByID :one
-SELECT id, tenant_id, store_id, product_id, sku, barcode, title, price_cents, compare_at_cents, option_values, status, created_at, updated_at FROM product_variants
+SELECT id, tenant_id, store_id, product_id, sku, barcode, title, price_cents, compare_at_cents, option_values, status, created_at, updated_at, gid FROM product_variants
 WHERE id = $1
 `
 
@@ -161,12 +192,13 @@ func (q *Queries) GetProductVariantByID(ctx context.Context, id uuid.UUID) (Prod
 		&i.Status,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Gid,
 	)
 	return i, err
 }
 
 const getProductVariantBySKU = `-- name: GetProductVariantBySKU :one
-SELECT id, tenant_id, store_id, product_id, sku, barcode, title, price_cents, compare_at_cents, option_values, status, created_at, updated_at FROM product_variants
+SELECT id, tenant_id, store_id, product_id, sku, barcode, title, price_cents, compare_at_cents, option_values, status, created_at, updated_at, gid FROM product_variants
 WHERE store_id = $1 AND sku = $2
 `
 
@@ -192,12 +224,13 @@ func (q *Queries) GetProductVariantBySKU(ctx context.Context, arg GetProductVari
 		&i.Status,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Gid,
 	)
 	return i, err
 }
 
 const getProductVariantsByProductID = `-- name: GetProductVariantsByProductID :many
-SELECT id, tenant_id, store_id, product_id, sku, barcode, title, price_cents, compare_at_cents, option_values, status, created_at, updated_at FROM product_variants
+SELECT id, tenant_id, store_id, product_id, sku, barcode, title, price_cents, compare_at_cents, option_values, status, created_at, updated_at, gid FROM product_variants
 WHERE product_id = $1
 ORDER BY created_at ASC
 `
@@ -225,6 +258,7 @@ func (q *Queries) GetProductVariantsByProductID(ctx context.Context, productID u
 			&i.Status,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.Gid,
 		); err != nil {
 			return nil, err
 		}
@@ -240,7 +274,7 @@ func (q *Queries) GetProductVariantsByProductID(ctx context.Context, productID u
 }
 
 const getProductVariantsByProductIDPaginated = `-- name: GetProductVariantsByProductIDPaginated :many
-SELECT id, tenant_id, store_id, product_id, sku, barcode, title,
+SELECT id, gid, tenant_id, store_id, product_id, sku, barcode, title,
        price_cents, compare_at_cents, option_values, status, created_at, updated_at
 FROM product_variants
 WHERE product_id = $1
@@ -260,7 +294,24 @@ type GetProductVariantsByProductIDPaginatedParams struct {
 	Limit     int32
 }
 
-func (q *Queries) GetProductVariantsByProductIDPaginated(ctx context.Context, arg GetProductVariantsByProductIDPaginatedParams) ([]ProductVariant, error) {
+type GetProductVariantsByProductIDPaginatedRow struct {
+	ID             uuid.UUID
+	Gid            sql.NullInt64
+	TenantID       uuid.UUID
+	StoreID        uuid.UUID
+	ProductID      uuid.UUID
+	Sku            sql.NullString
+	Barcode        sql.NullString
+	Title          string
+	PriceCents     int32
+	CompareAtCents sql.NullInt32
+	OptionValues   json.RawMessage
+	Status         string
+	CreatedAt      time.Time
+	UpdatedAt      time.Time
+}
+
+func (q *Queries) GetProductVariantsByProductIDPaginated(ctx context.Context, arg GetProductVariantsByProductIDPaginatedParams) ([]GetProductVariantsByProductIDPaginatedRow, error) {
 	rows, err := q.db.QueryContext(ctx, getProductVariantsByProductIDPaginated,
 		arg.ProductID,
 		arg.Column2,
@@ -272,11 +323,12 @@ func (q *Queries) GetProductVariantsByProductIDPaginated(ctx context.Context, ar
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ProductVariant
+	var items []GetProductVariantsByProductIDPaginatedRow
 	for rows.Next() {
-		var i ProductVariant
+		var i GetProductVariantsByProductIDPaginatedRow
 		if err := rows.Scan(
 			&i.ID,
+			&i.Gid,
 			&i.TenantID,
 			&i.StoreID,
 			&i.ProductID,
@@ -304,7 +356,7 @@ func (q *Queries) GetProductVariantsByProductIDPaginated(ctx context.Context, ar
 }
 
 const getProductVariantsByStoreID = `-- name: GetProductVariantsByStoreID :many
-SELECT id, tenant_id, store_id, product_id, sku, barcode, title, price_cents, compare_at_cents, option_values, status, created_at, updated_at FROM product_variants
+SELECT id, tenant_id, store_id, product_id, sku, barcode, title, price_cents, compare_at_cents, option_values, status, created_at, updated_at, gid FROM product_variants
 WHERE store_id = $1
 ORDER BY created_at DESC
 `
@@ -332,6 +384,7 @@ func (q *Queries) GetProductVariantsByStoreID(ctx context.Context, storeID uuid.
 			&i.Status,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.Gid,
 		); err != nil {
 			return nil, err
 		}
@@ -349,6 +402,7 @@ func (q *Queries) GetProductVariantsByStoreID(ctx context.Context, storeID uuid.
 const getProductWithVariants = `-- name: GetProductWithVariants :many
 SELECT
     p.id as product_id,
+    p.gid as product_gid,
     p.store_id,
     p.handle,
     p.name as product_name,
@@ -360,6 +414,7 @@ SELECT
     p.created_at as product_created_at,
     p.updated_at as product_updated_at,
     pv.id as variant_id,
+    pv.gid as variant_gid,
     pv.tenant_id,
     pv.sku as variant_sku,
     pv.barcode,
@@ -382,6 +437,7 @@ type GetProductWithVariantsParams struct {
 
 type GetProductWithVariantsRow struct {
 	ProductID        uuid.UUID
+	ProductGid       sql.NullInt64
 	StoreID          uuid.UUID
 	Handle           string
 	ProductName      string
@@ -393,6 +449,7 @@ type GetProductWithVariantsRow struct {
 	ProductCreatedAt time.Time
 	ProductUpdatedAt time.Time
 	VariantID        uuid.NullUUID
+	VariantGid       sql.NullInt64
 	TenantID         uuid.NullUUID
 	VariantSku       sql.NullString
 	Barcode          sql.NullString
@@ -416,6 +473,7 @@ func (q *Queries) GetProductWithVariants(ctx context.Context, arg GetProductWith
 		var i GetProductWithVariantsRow
 		if err := rows.Scan(
 			&i.ProductID,
+			&i.ProductGid,
 			&i.StoreID,
 			&i.Handle,
 			&i.ProductName,
@@ -427,6 +485,7 @@ func (q *Queries) GetProductWithVariants(ctx context.Context, arg GetProductWith
 			&i.ProductCreatedAt,
 			&i.ProductUpdatedAt,
 			&i.VariantID,
+			&i.VariantGid,
 			&i.TenantID,
 			&i.VariantSku,
 			&i.Barcode,
@@ -463,7 +522,7 @@ SET
     status = $9,
     updated_at = now()
 WHERE id = $1 AND product_id = $2
-RETURNING id, tenant_id, store_id, product_id, sku, barcode, title, price_cents, compare_at_cents, option_values, status, created_at, updated_at
+RETURNING id, tenant_id, store_id, product_id, sku, barcode, title, price_cents, compare_at_cents, option_values, status, created_at, updated_at, gid
 `
 
 type UpdateProductVariantParams struct {
@@ -505,6 +564,7 @@ func (q *Queries) UpdateProductVariant(ctx context.Context, arg UpdateProductVar
 		&i.Status,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Gid,
 	)
 	return i, err
 }

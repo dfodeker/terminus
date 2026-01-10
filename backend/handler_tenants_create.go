@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/dfodeker/terminus/internal/database"
+	"github.com/dfodeker/terminus/internal/gid"
 	"github.com/dfodeker/terminus/middleware"
 	"github.com/google/uuid"
 )
@@ -17,6 +18,7 @@ const ownerRoleDesc = "Full access to all tenant resources, stores, and settings
 
 type TenantResponse struct {
 	ID        uuid.UUID `json:"id"`
+	GID       string    `json:"gid"`
 	Name      string    `json:"name"`
 	Status    string    `json:"status"`
 	CreatedAt time.Time `json:"created_at"`
@@ -65,8 +67,14 @@ func (cfg *apiConfig) handlerTenantsCreate(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
+	// Generate GID for the tenant
+	tenantGID := cfg.gidGen.Generate()
+
 	// Create the tenant
-	tenant, err := cfg.db.CreateTenant(r.Context(), params.Name)
+	tenant, err := cfg.db.CreateTenant(r.Context(), database.CreateTenantParams{
+		Gid:  sql.NullInt64{Int64: int64(tenantGID), Valid: true},
+		Name: params.Name,
+	})
 	if err != nil {
 		slog.ErrorContext(r.Context(), "Error creating tenant", "error", err, "request_id", reqID)
 		respondWithError(w, http.StatusBadRequest, "Unable to create tenant", err)
@@ -92,8 +100,10 @@ func (cfg *apiConfig) handlerTenantsCreate(w http.ResponseWriter, r *http.Reques
 	)
 
 	// Create Owner role for the tenant
+	roleGID := cfg.gidGen.Generate()
 	description := sql.NullString{String: ownerRoleDesc, Valid: true}
 	role, err := cfg.db.CreateRole(r.Context(), database.CreateRoleParams{
+		Gid:         sql.NullInt64{Int64: int64(roleGID), Valid: true},
 		TenantID:    tenant.ID,
 		Name:        ownerRoleName,
 		Description: description,
@@ -168,6 +178,7 @@ func (cfg *apiConfig) handlerTenantsCreate(w http.ResponseWriter, r *http.Reques
 	respondWithJSON(w, http.StatusCreated, CreateTenantResponse{
 		Tenant: TenantResponse{
 			ID:        tenant.ID,
+			GID:       gid.TenantGID(uint64(tenant.Gid.Int64)).String(),
 			Name:      tenant.Name,
 			Status:    tenant.Status,
 			CreatedAt: tenant.CreatedAt,

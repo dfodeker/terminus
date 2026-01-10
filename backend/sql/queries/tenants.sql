@@ -1,7 +1,11 @@
 -- name: CreateTenant :one
-INSERT INTO tenants (id, name, status, created_at, updated_at)
-VALUES (gen_random_uuid(), $1, 'active', now(), now())
+INSERT INTO tenants (id, gid, name, status, created_at, updated_at)
+VALUES (gen_random_uuid(), $1, $2, 'active', now(), now())
 RETURNING *;
+
+-- name: GetTenantByGID :one
+SELECT * FROM tenants
+WHERE gid = $1;
 
 -- name: GetTenantByID :one
 SELECT * FROM tenants
@@ -47,7 +51,7 @@ JOIN users u ON tu.user_id = u.id
 WHERE tu.tenant_id = $1;
 
 -- name: GetTenantsByUserIDPaginated :many
-SELECT t.id, t.name, t.status, t.created_at, t.updated_at
+SELECT t.id, t.gid, t.name, t.status, t.created_at, t.updated_at
 FROM tenants t
 JOIN tenant_users tu ON t.id = tu.tenant_id
 WHERE tu.user_id = $1

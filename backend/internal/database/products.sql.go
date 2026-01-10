@@ -14,12 +14,13 @@ import (
 )
 
 const createProduct = `-- name: CreateProduct :one
-INSERT INTO products (id, store_id, handle, name, description, inventory_tracked, sku, tags, status, created_at, updated_at)
-VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW())
-RETURNING id, store_id, handle, name, description, inventory_tracked, sku, tags, status, created_at, updated_at
+INSERT INTO products (id, gid, store_id, handle, name, description, inventory_tracked, sku, tags, status, created_at, updated_at)
+VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7, $8, $9, NOW(), NOW())
+RETURNING id, store_id, handle, name, description, inventory_tracked, sku, tags, status, created_at, updated_at, gid
 `
 
 type CreateProductParams struct {
+	Gid              sql.NullInt64
 	StoreID          uuid.UUID
 	Handle           string
 	Name             string
@@ -32,6 +33,7 @@ type CreateProductParams struct {
 
 func (q *Queries) CreateProduct(ctx context.Context, arg CreateProductParams) (Product, error) {
 	row := q.db.QueryRowContext(ctx, createProduct,
+		arg.Gid,
 		arg.StoreID,
 		arg.Handle,
 		arg.Name,
@@ -54,6 +56,7 @@ func (q *Queries) CreateProduct(ctx context.Context, arg CreateProductParams) (P
 		&i.Status,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Gid,
 	)
 	return i, err
 }
@@ -61,7 +64,7 @@ func (q *Queries) CreateProduct(ctx context.Context, arg CreateProductParams) (P
 const deleteProduct = `-- name: DeleteProduct :one
 DELETE FROM products
 WHERE id = $1 AND store_id = $2
-RETURNING id, store_id, handle, name, description, inventory_tracked, sku, tags, status, created_at, updated_at
+RETURNING id, store_id, handle, name, description, inventory_tracked, sku, tags, status, created_at, updated_at, gid
 `
 
 type DeleteProductParams struct {
@@ -84,12 +87,38 @@ func (q *Queries) DeleteProduct(ctx context.Context, arg DeleteProductParams) (P
 		&i.Status,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Gid,
+	)
+	return i, err
+}
+
+const getProductByGID = `-- name: GetProductByGID :one
+SELECT id, store_id, handle, name, description, inventory_tracked, sku, tags, status, created_at, updated_at, gid FROM products
+WHERE gid = $1
+`
+
+func (q *Queries) GetProductByGID(ctx context.Context, gid sql.NullInt64) (Product, error) {
+	row := q.db.QueryRowContext(ctx, getProductByGID, gid)
+	var i Product
+	err := row.Scan(
+		&i.ID,
+		&i.StoreID,
+		&i.Handle,
+		&i.Name,
+		&i.Description,
+		&i.InventoryTracked,
+		&i.Sku,
+		&i.Tags,
+		&i.Status,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.Gid,
 	)
 	return i, err
 }
 
 const getProductByHandle = `-- name: GetProductByHandle :one
-SELECT id, store_id, handle, name, description, inventory_tracked, sku, tags, status, created_at, updated_at FROM products
+SELECT id, store_id, handle, name, description, inventory_tracked, sku, tags, status, created_at, updated_at, gid FROM products
 WHERE store_id = $1 AND handle = $2
 `
 
@@ -113,12 +142,13 @@ func (q *Queries) GetProductByHandle(ctx context.Context, arg GetProductByHandle
 		&i.Status,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Gid,
 	)
 	return i, err
 }
 
 const getProductByID = `-- name: GetProductByID :one
-SELECT id, store_id, handle, name, description, inventory_tracked, sku, tags, status, created_at, updated_at FROM products
+SELECT id, store_id, handle, name, description, inventory_tracked, sku, tags, status, created_at, updated_at, gid FROM products
 WHERE id = $1 AND store_id = $2
 `
 
@@ -142,12 +172,13 @@ func (q *Queries) GetProductByID(ctx context.Context, arg GetProductByIDParams) 
 		&i.Status,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Gid,
 	)
 	return i, err
 }
 
 const getProductByIDOnly = `-- name: GetProductByIDOnly :one
-SELECT id, store_id, handle, name, description, inventory_tracked, sku, tags, status, created_at, updated_at FROM products
+SELECT id, store_id, handle, name, description, inventory_tracked, sku, tags, status, created_at, updated_at, gid FROM products
 WHERE id = $1
 `
 
@@ -166,12 +197,13 @@ func (q *Queries) GetProductByIDOnly(ctx context.Context, id uuid.UUID) (Product
 		&i.Status,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Gid,
 	)
 	return i, err
 }
 
 const getProductsByStore = `-- name: GetProductsByStore :many
-SELECT id, store_id, handle, name, description, inventory_tracked, sku, tags, status, created_at, updated_at FROM products
+SELECT id, store_id, handle, name, description, inventory_tracked, sku, tags, status, created_at, updated_at, gid FROM products
 WHERE store_id = $1
 ORDER BY created_at ASC
 `
@@ -197,6 +229,7 @@ func (q *Queries) GetProductsByStore(ctx context.Context, storeID uuid.UUID) ([]
 			&i.Status,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.Gid,
 		); err != nil {
 			return nil, err
 		}
@@ -212,7 +245,7 @@ func (q *Queries) GetProductsByStore(ctx context.Context, storeID uuid.UUID) ([]
 }
 
 const getProductsByStorePaginated = `-- name: GetProductsByStorePaginated :many
-SELECT id, store_id, handle, name, description, inventory_tracked, sku, tags, status, created_at, updated_at
+SELECT id, gid, store_id, handle, name, description, inventory_tracked, sku, tags, status, created_at, updated_at
 FROM products
 WHERE store_id = $1
   AND (
@@ -231,7 +264,22 @@ type GetProductsByStorePaginatedParams struct {
 	Limit   int32
 }
 
-func (q *Queries) GetProductsByStorePaginated(ctx context.Context, arg GetProductsByStorePaginatedParams) ([]Product, error) {
+type GetProductsByStorePaginatedRow struct {
+	ID               uuid.UUID
+	Gid              sql.NullInt64
+	StoreID          uuid.UUID
+	Handle           string
+	Name             string
+	Description      sql.NullString
+	InventoryTracked bool
+	Sku              sql.NullString
+	Tags             sql.NullString
+	Status           string
+	CreatedAt        time.Time
+	UpdatedAt        time.Time
+}
+
+func (q *Queries) GetProductsByStorePaginated(ctx context.Context, arg GetProductsByStorePaginatedParams) ([]GetProductsByStorePaginatedRow, error) {
 	rows, err := q.db.QueryContext(ctx, getProductsByStorePaginated,
 		arg.StoreID,
 		arg.Column2,
@@ -243,11 +291,12 @@ func (q *Queries) GetProductsByStorePaginated(ctx context.Context, arg GetProduc
 		return nil, err
 	}
 	defer rows.Close()
-	var items []Product
+	var items []GetProductsByStorePaginatedRow
 	for rows.Next() {
-		var i Product
+		var i GetProductsByStorePaginatedRow
 		if err := rows.Scan(
 			&i.ID,
+			&i.Gid,
 			&i.StoreID,
 			&i.Handle,
 			&i.Name,
@@ -284,7 +333,7 @@ SET
     status = $9,
     updated_at = NOW()
 WHERE id = $1 AND store_id = $2
-RETURNING id, store_id, handle, name, description, inventory_tracked, sku, tags, status, created_at, updated_at
+RETURNING id, store_id, handle, name, description, inventory_tracked, sku, tags, status, created_at, updated_at, gid
 `
 
 type UpdateProductParams struct {
@@ -324,6 +373,7 @@ func (q *Queries) UpdateProduct(ctx context.Context, arg UpdateProductParams) (P
 		&i.Status,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Gid,
 	)
 	return i, err
 }

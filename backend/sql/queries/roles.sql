@@ -1,9 +1,13 @@
 -- Role Management
 
 -- name: CreateRole :one
-INSERT INTO roles (id, tenant_id, name, description, created_at, updated_at)
-VALUES (gen_random_uuid(), $1, $2, $3, now(), now())
+INSERT INTO roles (id, gid, tenant_id, name, description, created_at, updated_at)
+VALUES (gen_random_uuid(), $1, $2, $3, $4, now(), now())
 RETURNING *;
+
+-- name: GetRoleByGID :one
+SELECT * FROM roles
+WHERE gid = $1;
 
 -- name: GetRoleByID :one
 SELECT * FROM roles
@@ -31,9 +35,13 @@ WHERE id = $1;
 -- Permission Management
 
 -- name: CreatePermission :one
-INSERT INTO permissions (id, key, description, created_at, updated_at)
-VALUES (gen_random_uuid(), $1, $2, now(), now())
+INSERT INTO permissions (id, gid, key, description, created_at, updated_at)
+VALUES (gen_random_uuid(), $1, $2, $3, now(), now())
 RETURNING *;
+
+-- name: GetPermissionByGID :one
+SELECT * FROM permissions
+WHERE gid = $1;
 
 -- name: GetPermissionByID :one
 SELECT * FROM permissions
@@ -115,7 +123,7 @@ SELECT * FROM roles
 WHERE tenant_id = $1 AND id = $2;
 
 -- name: GetRolesByTenantIDPaginated :many
-SELECT id, tenant_id, name, description, created_at, updated_at
+SELECT id, gid, tenant_id, name, description, created_at, updated_at
 FROM roles
 WHERE tenant_id = $1
   AND (

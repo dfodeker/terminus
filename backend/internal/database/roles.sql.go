@@ -80,19 +80,20 @@ func (q *Queries) CheckUserHasPermission(ctx context.Context, arg CheckUserHasPe
 
 const createPermission = `-- name: CreatePermission :one
 
-INSERT INTO permissions (id, key, description, created_at, updated_at)
-VALUES (gen_random_uuid(), $1, $2, now(), now())
-RETURNING id, key, description, created_at, updated_at
+INSERT INTO permissions (id, gid, key, description, created_at, updated_at)
+VALUES (gen_random_uuid(), $1, $2, $3, now(), now())
+RETURNING id, key, description, created_at, updated_at, gid
 `
 
 type CreatePermissionParams struct {
+	Gid         sql.NullInt64
 	Key         string
 	Description sql.NullString
 }
 
 // Permission Management
 func (q *Queries) CreatePermission(ctx context.Context, arg CreatePermissionParams) (Permission, error) {
-	row := q.db.QueryRowContext(ctx, createPermission, arg.Key, arg.Description)
+	row := q.db.QueryRowContext(ctx, createPermission, arg.Gid, arg.Key, arg.Description)
 	var i Permission
 	err := row.Scan(
 		&i.ID,
@@ -100,18 +101,20 @@ func (q *Queries) CreatePermission(ctx context.Context, arg CreatePermissionPara
 		&i.Description,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Gid,
 	)
 	return i, err
 }
 
 const createRole = `-- name: CreateRole :one
 
-INSERT INTO roles (id, tenant_id, name, description, created_at, updated_at)
-VALUES (gen_random_uuid(), $1, $2, $3, now(), now())
-RETURNING id, tenant_id, name, description, created_at, updated_at
+INSERT INTO roles (id, gid, tenant_id, name, description, created_at, updated_at)
+VALUES (gen_random_uuid(), $1, $2, $3, $4, now(), now())
+RETURNING id, tenant_id, name, description, created_at, updated_at, gid
 `
 
 type CreateRoleParams struct {
+	Gid         sql.NullInt64
 	TenantID    uuid.UUID
 	Name        string
 	Description sql.NullString
@@ -119,7 +122,12 @@ type CreateRoleParams struct {
 
 // Role Management
 func (q *Queries) CreateRole(ctx context.Context, arg CreateRoleParams) (Role, error) {
-	row := q.db.QueryRowContext(ctx, createRole, arg.TenantID, arg.Name, arg.Description)
+	row := q.db.QueryRowContext(ctx, createRole,
+		arg.Gid,
+		arg.TenantID,
+		arg.Name,
+		arg.Description,
+	)
 	var i Role
 	err := row.Scan(
 		&i.ID,
@@ -128,6 +136,7 @@ func (q *Queries) CreateRole(ctx context.Context, arg CreateRoleParams) (Role, e
 		&i.Description,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Gid,
 	)
 	return i, err
 }
@@ -143,7 +152,7 @@ func (q *Queries) DeleteRole(ctx context.Context, id uuid.UUID) error {
 }
 
 const getAllPermissions = `-- name: GetAllPermissions :many
-SELECT id, key, description, created_at, updated_at FROM permissions
+SELECT id, key, description, created_at, updated_at, gid FROM permissions
 ORDER BY key
 `
 
@@ -162,6 +171,7 @@ func (q *Queries) GetAllPermissions(ctx context.Context) ([]Permission, error) {
 			&i.Description,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.Gid,
 		); err != nil {
 			return nil, err
 		}
@@ -176,8 +186,27 @@ func (q *Queries) GetAllPermissions(ctx context.Context) ([]Permission, error) {
 	return items, nil
 }
 
+const getPermissionByGID = `-- name: GetPermissionByGID :one
+SELECT id, key, description, created_at, updated_at, gid FROM permissions
+WHERE gid = $1
+`
+
+func (q *Queries) GetPermissionByGID(ctx context.Context, gid sql.NullInt64) (Permission, error) {
+	row := q.db.QueryRowContext(ctx, getPermissionByGID, gid)
+	var i Permission
+	err := row.Scan(
+		&i.ID,
+		&i.Key,
+		&i.Description,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.Gid,
+	)
+	return i, err
+}
+
 const getPermissionByID = `-- name: GetPermissionByID :one
-SELECT id, key, description, created_at, updated_at FROM permissions
+SELECT id, key, description, created_at, updated_at, gid FROM permissions
 WHERE id = $1
 `
 
@@ -190,12 +219,13 @@ func (q *Queries) GetPermissionByID(ctx context.Context, id uuid.UUID) (Permissi
 		&i.Description,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Gid,
 	)
 	return i, err
 }
 
 const getPermissionByKey = `-- name: GetPermissionByKey :one
-SELECT id, key, description, created_at, updated_at FROM permissions
+SELECT id, key, description, created_at, updated_at, gid FROM permissions
 WHERE key = $1
 `
 
@@ -208,12 +238,13 @@ func (q *Queries) GetPermissionByKey(ctx context.Context, key string) (Permissio
 		&i.Description,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Gid,
 	)
 	return i, err
 }
 
 const getPermissionsByKeys = `-- name: GetPermissionsByKeys :many
-SELECT id, key, description, created_at, updated_at FROM permissions
+SELECT id, key, description, created_at, updated_at, gid FROM permissions
 WHERE key = ANY($1::text[])
 ORDER BY key
 `
@@ -233,6 +264,7 @@ func (q *Queries) GetPermissionsByKeys(ctx context.Context, dollar_1 []string) (
 			&i.Description,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.Gid,
 		); err != nil {
 			return nil, err
 		}
@@ -248,7 +280,7 @@ func (q *Queries) GetPermissionsByKeys(ctx context.Context, dollar_1 []string) (
 }
 
 const getPermissionsByRoleID = `-- name: GetPermissionsByRoleID :many
-SELECT p.id, p.key, p.description, p.created_at, p.updated_at FROM permissions p
+SELECT p.id, p.key, p.description, p.created_at, p.updated_at, p.gid FROM permissions p
 JOIN role_permissions rp ON p.id = rp.permission_id
 WHERE rp.role_id = $1
 ORDER BY p.key
@@ -269,6 +301,7 @@ func (q *Queries) GetPermissionsByRoleID(ctx context.Context, roleID uuid.UUID) 
 			&i.Description,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.Gid,
 		); err != nil {
 			return nil, err
 		}
@@ -283,8 +316,28 @@ func (q *Queries) GetPermissionsByRoleID(ctx context.Context, roleID uuid.UUID) 
 	return items, nil
 }
 
+const getRoleByGID = `-- name: GetRoleByGID :one
+SELECT id, tenant_id, name, description, created_at, updated_at, gid FROM roles
+WHERE gid = $1
+`
+
+func (q *Queries) GetRoleByGID(ctx context.Context, gid sql.NullInt64) (Role, error) {
+	row := q.db.QueryRowContext(ctx, getRoleByGID, gid)
+	var i Role
+	err := row.Scan(
+		&i.ID,
+		&i.TenantID,
+		&i.Name,
+		&i.Description,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.Gid,
+	)
+	return i, err
+}
+
 const getRoleByID = `-- name: GetRoleByID :one
-SELECT id, tenant_id, name, description, created_at, updated_at FROM roles
+SELECT id, tenant_id, name, description, created_at, updated_at, gid FROM roles
 WHERE id = $1
 `
 
@@ -298,12 +351,13 @@ func (q *Queries) GetRoleByID(ctx context.Context, id uuid.UUID) (Role, error) {
 		&i.Description,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Gid,
 	)
 	return i, err
 }
 
 const getRoleByTenantAndID = `-- name: GetRoleByTenantAndID :one
-SELECT id, tenant_id, name, description, created_at, updated_at FROM roles
+SELECT id, tenant_id, name, description, created_at, updated_at, gid FROM roles
 WHERE tenant_id = $1 AND id = $2
 `
 
@@ -322,12 +376,13 @@ func (q *Queries) GetRoleByTenantAndID(ctx context.Context, arg GetRoleByTenantA
 		&i.Description,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Gid,
 	)
 	return i, err
 }
 
 const getRoleByTenantAndName = `-- name: GetRoleByTenantAndName :one
-SELECT id, tenant_id, name, description, created_at, updated_at FROM roles
+SELECT id, tenant_id, name, description, created_at, updated_at, gid FROM roles
 WHERE tenant_id = $1 AND name = $2
 `
 
@@ -346,12 +401,13 @@ func (q *Queries) GetRoleByTenantAndName(ctx context.Context, arg GetRoleByTenan
 		&i.Description,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Gid,
 	)
 	return i, err
 }
 
 const getRolesByTenantID = `-- name: GetRolesByTenantID :many
-SELECT id, tenant_id, name, description, created_at, updated_at FROM roles
+SELECT id, tenant_id, name, description, created_at, updated_at, gid FROM roles
 WHERE tenant_id = $1
 ORDER BY name
 `
@@ -372,6 +428,7 @@ func (q *Queries) GetRolesByTenantID(ctx context.Context, tenantID uuid.UUID) ([
 			&i.Description,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.Gid,
 		); err != nil {
 			return nil, err
 		}
@@ -387,7 +444,7 @@ func (q *Queries) GetRolesByTenantID(ctx context.Context, tenantID uuid.UUID) ([
 }
 
 const getRolesByTenantIDPaginated = `-- name: GetRolesByTenantIDPaginated :many
-SELECT id, tenant_id, name, description, created_at, updated_at
+SELECT id, gid, tenant_id, name, description, created_at, updated_at
 FROM roles
 WHERE tenant_id = $1
   AND (
@@ -406,7 +463,17 @@ type GetRolesByTenantIDPaginatedParams struct {
 	Limit    int32
 }
 
-func (q *Queries) GetRolesByTenantIDPaginated(ctx context.Context, arg GetRolesByTenantIDPaginatedParams) ([]Role, error) {
+type GetRolesByTenantIDPaginatedRow struct {
+	ID          uuid.UUID
+	Gid         sql.NullInt64
+	TenantID    uuid.UUID
+	Name        string
+	Description sql.NullString
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
+}
+
+func (q *Queries) GetRolesByTenantIDPaginated(ctx context.Context, arg GetRolesByTenantIDPaginatedParams) ([]GetRolesByTenantIDPaginatedRow, error) {
 	rows, err := q.db.QueryContext(ctx, getRolesByTenantIDPaginated,
 		arg.TenantID,
 		arg.Column2,
@@ -418,11 +485,12 @@ func (q *Queries) GetRolesByTenantIDPaginated(ctx context.Context, arg GetRolesB
 		return nil, err
 	}
 	defer rows.Close()
-	var items []Role
+	var items []GetRolesByTenantIDPaginatedRow
 	for rows.Next() {
-		var i Role
+		var i GetRolesByTenantIDPaginatedRow
 		if err := rows.Scan(
 			&i.ID,
+			&i.Gid,
 			&i.TenantID,
 			&i.Name,
 			&i.Description,
@@ -443,7 +511,7 @@ func (q *Queries) GetRolesByTenantIDPaginated(ctx context.Context, arg GetRolesB
 }
 
 const getRolesByTenantUserID = `-- name: GetRolesByTenantUserID :many
-SELECT r.id, r.tenant_id, r.name, r.description, r.created_at, r.updated_at FROM roles r
+SELECT r.id, r.tenant_id, r.name, r.description, r.created_at, r.updated_at, r.gid FROM roles r
 JOIN tenant_user_roles tur ON r.id = tur.role_id
 WHERE tur.tenant_user_id = $1
 ORDER BY r.name
@@ -465,6 +533,7 @@ func (q *Queries) GetRolesByTenantUserID(ctx context.Context, tenantUserID uuid.
 			&i.Description,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.Gid,
 		); err != nil {
 			return nil, err
 		}
@@ -480,7 +549,7 @@ func (q *Queries) GetRolesByTenantUserID(ctx context.Context, tenantUserID uuid.
 }
 
 const getUserPermissionsInTenant = `-- name: GetUserPermissionsInTenant :many
-SELECT DISTINCT p.id, p.key, p.description, p.created_at, p.updated_at FROM permissions p
+SELECT DISTINCT p.id, p.key, p.description, p.created_at, p.updated_at, p.gid FROM permissions p
 JOIN role_permissions rp ON p.id = rp.permission_id
 JOIN tenant_user_roles tur ON rp.role_id = tur.role_id
 JOIN tenant_users tu ON tur.tenant_user_id = tu.id
@@ -508,6 +577,7 @@ func (q *Queries) GetUserPermissionsInTenant(ctx context.Context, arg GetUserPer
 			&i.Description,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.Gid,
 		); err != nil {
 			return nil, err
 		}
@@ -523,7 +593,7 @@ func (q *Queries) GetUserPermissionsInTenant(ctx context.Context, arg GetUserPer
 }
 
 const getUserRolesInTenant = `-- name: GetUserRolesInTenant :many
-SELECT r.id, r.tenant_id, r.name, r.description, r.created_at, r.updated_at FROM roles r
+SELECT r.id, r.tenant_id, r.name, r.description, r.created_at, r.updated_at, r.gid FROM roles r
 JOIN tenant_user_roles tur ON r.id = tur.role_id
 JOIN tenant_users tu ON tur.tenant_user_id = tu.id
 WHERE tu.tenant_id = $1 AND tu.user_id = $2 AND tu.status = 'active'
@@ -551,6 +621,7 @@ func (q *Queries) GetUserRolesInTenant(ctx context.Context, arg GetUserRolesInTe
 			&i.Description,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.Gid,
 		); err != nil {
 			return nil, err
 		}
@@ -599,7 +670,7 @@ const updateRole = `-- name: UpdateRole :one
 UPDATE roles
 SET name = $2, description = $3, updated_at = now()
 WHERE id = $1
-RETURNING id, tenant_id, name, description, created_at, updated_at
+RETURNING id, tenant_id, name, description, created_at, updated_at, gid
 `
 
 type UpdateRoleParams struct {
@@ -618,6 +689,7 @@ func (q *Queries) UpdateRole(ctx context.Context, arg UpdateRoleParams) (Role, e
 		&i.Description,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Gid,
 	)
 	return i, err
 }

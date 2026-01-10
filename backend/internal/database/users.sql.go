@@ -7,23 +7,25 @@ package database
 
 import (
 	"context"
+	"database/sql"
 
 	"github.com/google/uuid"
 )
 
 const createUser = `-- name: CreateUser :one
-insert into users (id, created_at, updated_at, email, hashed_password)
-values (gen_random_uuid(),now(), now(), $1, $2)
-RETURNING id, email, created_at, updated_at, hashed_password
+INSERT INTO users (id, gid, created_at, updated_at, email, hashed_password)
+VALUES (gen_random_uuid(), $1, now(), now(), $2, $3)
+RETURNING id, email, created_at, updated_at, hashed_password, gid
 `
 
 type CreateUserParams struct {
+	Gid            sql.NullInt64
 	Email          string
 	HashedPassword string
 }
 
 func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, error) {
-	row := q.db.QueryRowContext(ctx, createUser, arg.Email, arg.HashedPassword)
+	row := q.db.QueryRowContext(ctx, createUser, arg.Gid, arg.Email, arg.HashedPassword)
 	var i User
 	err := row.Scan(
 		&i.ID,
@@ -31,6 +33,7 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.HashedPassword,
+		&i.Gid,
 	)
 	return i, err
 }
@@ -45,7 +48,7 @@ func (q *Queries) DeleteAllUsers(ctx context.Context) error {
 }
 
 const getAllUsers = `-- name: GetAllUsers :many
-SELECT id, email, created_at, updated_at, hashed_password FROM users ORDER BY created_at ASC
+SELECT id, email, created_at, updated_at, hashed_password, gid FROM users ORDER BY created_at ASC
 `
 
 func (q *Queries) GetAllUsers(ctx context.Context) ([]User, error) {
@@ -63,6 +66,7 @@ func (q *Queries) GetAllUsers(ctx context.Context) ([]User, error) {
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.HashedPassword,
+			&i.Gid,
 		); err != nil {
 			return nil, err
 		}
@@ -78,7 +82,7 @@ func (q *Queries) GetAllUsers(ctx context.Context) ([]User, error) {
 }
 
 const getUserByEmail = `-- name: GetUserByEmail :one
-SELECT id, email, created_at, updated_at, hashed_password FROM users WHERE email = $1
+SELECT id, email, created_at, updated_at, hashed_password, gid FROM users WHERE email = $1
 `
 
 func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error) {
@@ -90,6 +94,26 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.HashedPassword,
+		&i.Gid,
+	)
+	return i, err
+}
+
+const getUserByGID = `-- name: GetUserByGID :one
+SELECT id, email, created_at, updated_at, hashed_password, gid FROM users
+WHERE gid = $1
+`
+
+func (q *Queries) GetUserByGID(ctx context.Context, gid sql.NullInt64) (User, error) {
+	row := q.db.QueryRowContext(ctx, getUserByGID, gid)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.Email,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.HashedPassword,
+		&i.Gid,
 	)
 	return i, err
 }
@@ -100,7 +124,7 @@ SET
     email = $2,
     updated_at = now()
 WHERE id = $1
-RETURNING id, email, created_at, updated_at, hashed_password
+RETURNING id, email, created_at, updated_at, hashed_password, gid
 `
 
 type UpdateUserParams struct {
@@ -117,6 +141,7 @@ func (q *Queries) UpdateUser(ctx context.Context, arg UpdateUserParams) (User, e
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.HashedPassword,
+		&i.Gid,
 	)
 	return i, err
 }

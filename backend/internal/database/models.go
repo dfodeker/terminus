@@ -12,12 +12,29 @@ import (
 	"github.com/google/uuid"
 )
 
+type CustomDomain struct {
+	ID                 uuid.UUID
+	Gid                int64
+	Domain             string
+	StoreID            uuid.UUID
+	TenantID           uuid.UUID
+	VerificationStatus string
+	VerificationToken  string
+	VerifiedAt         sql.NullTime
+	SslStatus          string
+	SslExpiresAt       sql.NullTime
+	IsPrimary          bool
+	CreatedAt          time.Time
+	UpdatedAt          time.Time
+}
+
 type Permission struct {
 	ID          uuid.UUID
 	Key         string
 	Description sql.NullString
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
+	Gid         sql.NullInt64
 }
 
 type Product struct {
@@ -32,6 +49,7 @@ type Product struct {
 	Status           string
 	CreatedAt        time.Time
 	UpdatedAt        time.Time
+	Gid              sql.NullInt64
 }
 
 type ProductVariant struct {
@@ -48,6 +66,7 @@ type ProductVariant struct {
 	Status         string
 	CreatedAt      time.Time
 	UpdatedAt      time.Time
+	Gid            sql.NullInt64
 }
 
 type RefreshToken struct {
@@ -66,6 +85,7 @@ type Role struct {
 	Description sql.NullString
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
+	Gid         sql.NullInt64
 }
 
 type RolePermission struct {
@@ -85,6 +105,7 @@ type Store struct {
 	CreatedAt       time.Time
 	UpdatedAt       time.Time
 	TenantID        uuid.NullUUID
+	Gid             sql.NullInt64
 }
 
 type StoreMembership struct {
@@ -102,6 +123,7 @@ type Tenant struct {
 	Status    string
 	CreatedAt time.Time
 	UpdatedAt time.Time
+	Gid       sql.NullInt64
 }
 
 type TenantUser struct {
@@ -124,4 +146,5 @@ type User struct {
 	CreatedAt      time.Time
 	UpdatedAt      time.Time
 	HashedPassword string
+	Gid            sql.NullInt64
 }

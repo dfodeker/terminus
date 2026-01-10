@@ -7,19 +7,25 @@ package database
 
 import (
 	"context"
+	"database/sql"
 	"time"
 
 	"github.com/google/uuid"
 )
 
 const createTenant = `-- name: CreateTenant :one
-INSERT INTO tenants (id, name, status, created_at, updated_at)
-VALUES (gen_random_uuid(), $1, 'active', now(), now())
-RETURNING id, name, status, created_at, updated_at
+INSERT INTO tenants (id, gid, name, status, created_at, updated_at)
+VALUES (gen_random_uuid(), $1, $2, 'active', now(), now())
+RETURNING id, name, status, created_at, updated_at, gid
 `
 
-func (q *Queries) CreateTenant(ctx context.Context, name string) (Tenant, error) {
-	row := q.db.QueryRowContext(ctx, createTenant, name)
+type CreateTenantParams struct {
+	Gid  sql.NullInt64
+	Name string
+}
+
+func (q *Queries) CreateTenant(ctx context.Context, arg CreateTenantParams) (Tenant, error) {
+	row := q.db.QueryRowContext(ctx, createTenant, arg.Gid, arg.Name)
 	var i Tenant
 	err := row.Scan(
 		&i.ID,
@@ -27,6 +33,7 @@ func (q *Queries) CreateTenant(ctx context.Context, name string) (Tenant, error)
 		&i.Status,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Gid,
 	)
 	return i, err
 }
@@ -57,8 +64,27 @@ func (q *Queries) CreateTenantUser(ctx context.Context, arg CreateTenantUserPara
 	return i, err
 }
 
+const getTenantByGID = `-- name: GetTenantByGID :one
+SELECT id, name, status, created_at, updated_at, gid FROM tenants
+WHERE gid = $1
+`
+
+func (q *Queries) GetTenantByGID(ctx context.Context, gid sql.NullInt64) (Tenant, error) {
+	row := q.db.QueryRowContext(ctx, getTenantByGID, gid)
+	var i Tenant
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Status,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.Gid,
+	)
+	return i, err
+}
+
 const getTenantByID = `-- name: GetTenantByID :one
-SELECT id, name, status, created_at, updated_at FROM tenants
+SELECT id, name, status, created_at, updated_at, gid FROM tenants
 WHERE id = $1
 `
 
@@ -71,12 +97,13 @@ func (q *Queries) GetTenantByID(ctx context.Context, id uuid.UUID) (Tenant, erro
 		&i.Status,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Gid,
 	)
 	return i, err
 }
 
 const getTenantByName = `-- name: GetTenantByName :one
-SELECT id, name, status, created_at, updated_at FROM tenants
+SELECT id, name, status, created_at, updated_at, gid FROM tenants
 WHERE name = $1
 `
 
@@ -89,6 +116,7 @@ func (q *Queries) GetTenantByName(ctx context.Context, name string) (Tenant, err
 		&i.Status,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Gid,
 	)
 	return i, err
 }
@@ -287,7 +315,7 @@ func (q *Queries) GetTenantUsersWithDetailsPaginated(ctx context.Context, arg Ge
 }
 
 const getTenantsByUserID = `-- name: GetTenantsByUserID :many
-SELECT t.id, t.name, t.status, t.created_at, t.updated_at FROM tenants t
+SELECT t.id, t.name, t.status, t.created_at, t.updated_at, t.gid FROM tenants t
 JOIN tenant_users tu ON t.id = tu.tenant_id
 WHERE tu.user_id = $1 AND tu.status = 'active'
 `
@@ -307,6 +335,7 @@ func (q *Queries) GetTenantsByUserID(ctx context.Context, userID uuid.UUID) ([]T
 			&i.Status,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.Gid,
 		); err != nil {
 			return nil, err
 		}
@@ -322,7 +351,7 @@ func (q *Queries) GetTenantsByUserID(ctx context.Context, userID uuid.UUID) ([]T
 }
 
 const getTenantsByUserIDPaginated = `-- name: GetTenantsByUserIDPaginated :many
-SELECT t.id, t.name, t.status, t.created_at, t.updated_at
+SELECT t.id, t.gid, t.name, t.status, t.created_at, t.updated_at
 FROM tenants t
 JOIN tenant_users tu ON t.id = tu.tenant_id
 WHERE tu.user_id = $1
@@ -343,7 +372,16 @@ type GetTenantsByUserIDPaginatedParams struct {
 	Limit   int32
 }
 
-func (q *Queries) GetTenantsByUserIDPaginated(ctx context.Context, arg GetTenantsByUserIDPaginatedParams) ([]Tenant, error) {
+type GetTenantsByUserIDPaginatedRow struct {
+	ID        uuid.UUID
+	Gid       sql.NullInt64
+	Name      string
+	Status    string
+	CreatedAt time.Time
+	UpdatedAt time.Time
+}
+
+func (q *Queries) GetTenantsByUserIDPaginated(ctx context.Context, arg GetTenantsByUserIDPaginatedParams) ([]GetTenantsByUserIDPaginatedRow, error) {
 	rows, err := q.db.QueryContext(ctx, getTenantsByUserIDPaginated,
 		arg.UserID,
 		arg.Column2,
@@ -355,11 +393,12 @@ func (q *Queries) GetTenantsByUserIDPaginated(ctx context.Context, arg GetTenant
 		return nil, err
 	}
 	defer rows.Close()
-	var items []Tenant
+	var items []GetTenantsByUserIDPaginatedRow
 	for rows.Next() {
-		var i Tenant
+		var i GetTenantsByUserIDPaginatedRow
 		if err := rows.Scan(
 			&i.ID,
+			&i.Gid,
 			&i.Name,
 			&i.Status,
 			&i.CreatedAt,
@@ -382,7 +421,7 @@ const updateTenantStatus = `-- name: UpdateTenantStatus :one
 UPDATE tenants
 SET status = $2, updated_at = now()
 WHERE id = $1
-RETURNING id, name, status, created_at, updated_at
+RETURNING id, name, status, created_at, updated_at, gid
 `
 
 type UpdateTenantStatusParams struct {
@@ -399,6 +438,7 @@ func (q *Queries) UpdateTenantStatus(ctx context.Context, arg UpdateTenantStatus
 		&i.Status,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Gid,
 	)
 	return i, err
 }

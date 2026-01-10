@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/dfodeker/terminus/internal/database"
+	"github.com/dfodeker/terminus/internal/gid"
 	"github.com/dfodeker/terminus/middleware"
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
@@ -16,6 +17,7 @@ import (
 
 type ProductResponse struct {
 	ID               uuid.UUID `json:"id"`
+	GID              string    `json:"gid,omitempty"`
 	StoreID          uuid.UUID `json:"store_id"`
 	Handle           string    `json:"handle"`
 	Name             string    `json:"name"`
@@ -245,7 +247,7 @@ func (cfg *apiConfig) handlerStoreProductsList(w http.ResponseWriter, r *http.Re
 
 	response := make([]ProductResponse, 0, len(rows))
 	for _, p := range rows {
-		response = append(response, toProductResponse(p))
+		response = append(response, toProductResponseFromPaginatedRow(p))
 	}
 
 	slog.InfoContext(r.Context(), "products list successful",
@@ -510,6 +512,7 @@ func (cfg *apiConfig) handlerStoreProductDelete(w http.ResponseWriter, r *http.R
 // Helper functions to convert database models to response types
 func toProductResponse(p database.Product) ProductResponse {
 	var desc, sku, tags *string
+	var gidStr string
 	if p.Description.Valid {
 		desc = &p.Description.String
 	}
@@ -519,9 +522,46 @@ func toProductResponse(p database.Product) ProductResponse {
 	if p.Tags.Valid {
 		tags = &p.Tags.String
 	}
+	if p.Gid.Valid {
+		gidStr = gid.ProductGID(uint64(p.Gid.Int64)).String()
+	}
 
 	return ProductResponse{
 		ID:               p.ID,
+		GID:              gidStr,
+		StoreID:          p.StoreID,
+		Handle:           p.Handle,
+		Name:             p.Name,
+		Description:      desc,
+		InventoryTracked: p.InventoryTracked,
+		SKU:              sku,
+		Tags:             tags,
+		Status:           p.Status,
+		CreatedAt:        p.CreatedAt,
+		UpdatedAt:        p.UpdatedAt,
+	}
+}
+
+// toProductResponseFromPaginatedRow converts a paginated row to ProductResponse
+func toProductResponseFromPaginatedRow(p database.GetProductsByStorePaginatedRow) ProductResponse {
+	var desc, sku, tags *string
+	var gidStr string
+	if p.Description.Valid {
+		desc = &p.Description.String
+	}
+	if p.Sku.Valid {
+		sku = &p.Sku.String
+	}
+	if p.Tags.Valid {
+		tags = &p.Tags.String
+	}
+	if p.Gid.Valid {
+		gidStr = gid.ProductGID(uint64(p.Gid.Int64)).String()
+	}
+
+	return ProductResponse{
+		ID:               p.ID,
+		GID:              gidStr,
 		StoreID:          p.StoreID,
 		Handle:           p.Handle,
 		Name:             p.Name,

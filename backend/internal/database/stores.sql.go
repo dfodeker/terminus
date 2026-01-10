@@ -7,18 +7,20 @@ package database
 
 import (
 	"context"
+	"database/sql"
 	"time"
 
 	"github.com/google/uuid"
 )
 
 const createStore = `-- name: CreateStore :one
-INSERT INTO stores (id, name, handle, address, status, default_currency, timezone, plan, tenant_id, created_at, updated_at)
-VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7, $8, now(), now())
-RETURNING id, name, handle, address, status, default_currency, timezone, plan, created_at, updated_at, tenant_id
+INSERT INTO stores (id, gid, name, handle, address, status, default_currency, timezone, plan, tenant_id, created_at, updated_at)
+VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7, $8, $9, now(), now())
+RETURNING id, name, handle, address, status, default_currency, timezone, plan, created_at, updated_at, tenant_id, gid
 `
 
 type CreateStoreParams struct {
+	Gid             sql.NullInt64
 	Name            string
 	Handle          string
 	Address         string
@@ -31,6 +33,7 @@ type CreateStoreParams struct {
 
 func (q *Queries) CreateStore(ctx context.Context, arg CreateStoreParams) (Store, error) {
 	row := q.db.QueryRowContext(ctx, createStore,
+		arg.Gid,
 		arg.Name,
 		arg.Handle,
 		arg.Address,
@@ -53,18 +56,20 @@ func (q *Queries) CreateStore(ctx context.Context, arg CreateStoreParams) (Store
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.TenantID,
+		&i.Gid,
 	)
 	return i, err
 }
 
 const createStoreForTenant = `-- name: CreateStoreForTenant :one
 
-INSERT INTO stores (id, name, handle, address, status, default_currency, timezone, plan, tenant_id, created_at, updated_at)
-VALUES (gen_random_uuid(), $1, $2, '', 'active', 'USD', 'UTC', $3, $4, now(), now())
-RETURNING id, name, handle, address, status, default_currency, timezone, plan, created_at, updated_at, tenant_id
+INSERT INTO stores (id, gid, name, handle, address, status, default_currency, timezone, plan, tenant_id, created_at, updated_at)
+VALUES (gen_random_uuid(), $1, $2, $3, '', 'active', 'USD', 'UTC', $4, $5, now(), now())
+RETURNING id, name, handle, address, status, default_currency, timezone, plan, created_at, updated_at, tenant_id, gid
 `
 
 type CreateStoreForTenantParams struct {
+	Gid      sql.NullInt64
 	Name     string
 	Handle   string
 	Plan     string
@@ -74,6 +79,7 @@ type CreateStoreForTenantParams struct {
 // Tenant-scoped store queries
 func (q *Queries) CreateStoreForTenant(ctx context.Context, arg CreateStoreForTenantParams) (Store, error) {
 	row := q.db.QueryRowContext(ctx, createStoreForTenant,
+		arg.Gid,
 		arg.Name,
 		arg.Handle,
 		arg.Plan,
@@ -92,6 +98,7 @@ func (q *Queries) CreateStoreForTenant(ctx context.Context, arg CreateStoreForTe
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.TenantID,
+		&i.Gid,
 	)
 	return i, err
 }
@@ -120,8 +127,33 @@ func (q *Queries) DeleteStoreForTenant(ctx context.Context, arg DeleteStoreForTe
 	return err
 }
 
+const getStoreByGID = `-- name: GetStoreByGID :one
+SELECT id, name, handle, address, status, default_currency, timezone, plan, created_at, updated_at, tenant_id, gid FROM stores
+WHERE gid = $1
+`
+
+func (q *Queries) GetStoreByGID(ctx context.Context, gid sql.NullInt64) (Store, error) {
+	row := q.db.QueryRowContext(ctx, getStoreByGID, gid)
+	var i Store
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Handle,
+		&i.Address,
+		&i.Status,
+		&i.DefaultCurrency,
+		&i.Timezone,
+		&i.Plan,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.TenantID,
+		&i.Gid,
+	)
+	return i, err
+}
+
 const getStoreByHandle = `-- name: GetStoreByHandle :one
-SELECT id, name, handle, address, status, default_currency, timezone, plan, created_at, updated_at, tenant_id FROM stores WHERE handle = $1
+SELECT id, name, handle, address, status, default_currency, timezone, plan, created_at, updated_at, tenant_id, gid FROM stores WHERE handle = $1
 `
 
 func (q *Queries) GetStoreByHandle(ctx context.Context, handle string) (Store, error) {
@@ -139,12 +171,13 @@ func (q *Queries) GetStoreByHandle(ctx context.Context, handle string) (Store, e
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.TenantID,
+		&i.Gid,
 	)
 	return i, err
 }
 
 const getStoreByTenantAndHandle = `-- name: GetStoreByTenantAndHandle :one
-SELECT id, name, handle, address, status, default_currency, timezone, plan, created_at, updated_at, tenant_id FROM stores
+SELECT id, name, handle, address, status, default_currency, timezone, plan, created_at, updated_at, tenant_id, gid FROM stores
 WHERE tenant_id = $1 AND handle = $2
 `
 
@@ -168,12 +201,13 @@ func (q *Queries) GetStoreByTenantAndHandle(ctx context.Context, arg GetStoreByT
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.TenantID,
+		&i.Gid,
 	)
 	return i, err
 }
 
 const getStoreByTenantAndID = `-- name: GetStoreByTenantAndID :one
-SELECT id, name, handle, address, status, default_currency, timezone, plan, created_at, updated_at, tenant_id FROM stores
+SELECT id, name, handle, address, status, default_currency, timezone, plan, created_at, updated_at, tenant_id, gid FROM stores
 WHERE tenant_id = $1 AND id = $2
 `
 
@@ -197,12 +231,13 @@ func (q *Queries) GetStoreByTenantAndID(ctx context.Context, arg GetStoreByTenan
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.TenantID,
+		&i.Gid,
 	)
 	return i, err
 }
 
 const getStores = `-- name: GetStores :many
-SELECT id, name, handle, address, status, default_currency, timezone, plan, created_at, updated_at, tenant_id FROM stores ORDER BY created_at ASC
+SELECT id, name, handle, address, status, default_currency, timezone, plan, created_at, updated_at, tenant_id, gid FROM stores ORDER BY created_at ASC
 `
 
 func (q *Queries) GetStores(ctx context.Context) ([]Store, error) {
@@ -226,6 +261,7 @@ func (q *Queries) GetStores(ctx context.Context) ([]Store, error) {
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.TenantID,
+			&i.Gid,
 		); err != nil {
 			return nil, err
 		}
@@ -241,7 +277,7 @@ func (q *Queries) GetStores(ctx context.Context) ([]Store, error) {
 }
 
 const getStoresByTenantID = `-- name: GetStoresByTenantID :many
-SELECT id, name, handle, address, status, default_currency, timezone, plan, created_at, updated_at, tenant_id FROM stores
+SELECT id, name, handle, address, status, default_currency, timezone, plan, created_at, updated_at, tenant_id, gid FROM stores
 WHERE tenant_id = $1
 ORDER BY created_at DESC
 `
@@ -267,6 +303,7 @@ func (q *Queries) GetStoresByTenantID(ctx context.Context, tenantID uuid.NullUUI
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.TenantID,
+			&i.Gid,
 		); err != nil {
 			return nil, err
 		}
@@ -282,7 +319,7 @@ func (q *Queries) GetStoresByTenantID(ctx context.Context, tenantID uuid.NullUUI
 }
 
 const getStoresByTenantIDPaginated = `-- name: GetStoresByTenantIDPaginated :many
-SELECT id, name, handle, address, status, default_currency, timezone, plan, tenant_id, created_at, updated_at
+SELECT id, gid, name, handle, address, status, default_currency, timezone, plan, tenant_id, created_at, updated_at
 FROM stores
 WHERE tenant_id = $1
   AND (
@@ -303,6 +340,7 @@ type GetStoresByTenantIDPaginatedParams struct {
 
 type GetStoresByTenantIDPaginatedRow struct {
 	ID              uuid.UUID
+	Gid             sql.NullInt64
 	Name            string
 	Handle          string
 	Address         string
@@ -332,6 +370,7 @@ func (q *Queries) GetStoresByTenantIDPaginated(ctx context.Context, arg GetStore
 		var i GetStoresByTenantIDPaginatedRow
 		if err := rows.Scan(
 			&i.ID,
+			&i.Gid,
 			&i.Name,
 			&i.Handle,
 			&i.Address,
@@ -363,7 +402,7 @@ SET
     handle = $3,
     updated_at = now()
 WHERE id = $1
-RETURNING id, name, handle, address, status, default_currency, timezone, plan, created_at, updated_at, tenant_id
+RETURNING id, name, handle, address, status, default_currency, timezone, plan, created_at, updated_at, tenant_id, gid
 `
 
 type UpdateStoreParams struct {
@@ -387,6 +426,7 @@ func (q *Queries) UpdateStore(ctx context.Context, arg UpdateStoreParams) (Store
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.TenantID,
+		&i.Gid,
 	)
 	return i, err
 }
@@ -403,7 +443,7 @@ SET
     plan = $9,
     updated_at = now()
 WHERE id = $1 AND tenant_id = $2
-RETURNING id, name, handle, address, status, default_currency, timezone, plan, created_at, updated_at, tenant_id
+RETURNING id, name, handle, address, status, default_currency, timezone, plan, created_at, updated_at, tenant_id, gid
 `
 
 type UpdateStoreForTenantParams struct {
@@ -443,6 +483,7 @@ func (q *Queries) UpdateStoreForTenant(ctx context.Context, arg UpdateStoreForTe
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.TenantID,
+		&i.Gid,
 	)
 	return i, err
 }

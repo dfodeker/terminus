@@ -1,7 +1,11 @@
 -- name: CreateProduct :one
-INSERT INTO products (id, store_id, handle, name, description, inventory_tracked, sku, tags, status, created_at, updated_at)
-VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW())
+INSERT INTO products (id, gid, store_id, handle, name, description, inventory_tracked, sku, tags, status, created_at, updated_at)
+VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7, $8, $9, NOW(), NOW())
 RETURNING *;
+
+-- name: GetProductByGID :one
+SELECT * FROM products
+WHERE gid = $1;
 
 
 -- name: GetProductsByStore :many
@@ -13,7 +17,7 @@ ORDER BY created_at ASC;
 
 
 -- name: GetProductsByStorePaginated :many
-SELECT id, store_id, handle, name, description, inventory_tracked, sku, tags, status, created_at, updated_at
+SELECT id, gid, store_id, handle, name, description, inventory_tracked, sku, tags, status, created_at, updated_at
 FROM products
 WHERE store_id = $1
   AND (

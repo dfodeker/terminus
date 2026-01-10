@@ -1,7 +1,11 @@
 -- name: CreateStore :one
-INSERT INTO stores (id, name, handle, address, status, default_currency, timezone, plan, tenant_id, created_at, updated_at)
-VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7, $8, now(), now())
+INSERT INTO stores (id, gid, name, handle, address, status, default_currency, timezone, plan, tenant_id, created_at, updated_at)
+VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7, $8, $9, now(), now())
 RETURNING *;
+
+-- name: GetStoreByGID :one
+SELECT * FROM stores
+WHERE gid = $1;
 
 -- name: DeleteAllStores :exec
 DELETE FROM stores;
@@ -24,8 +28,8 @@ RETURNING *;
 -- Tenant-scoped store queries
 
 -- name: CreateStoreForTenant :one
-INSERT INTO stores (id, name, handle, address, status, default_currency, timezone, plan, tenant_id, created_at, updated_at)
-VALUES (gen_random_uuid(), $1, $2, '', 'active', 'USD', 'UTC', $3, $4, now(), now())
+INSERT INTO stores (id, gid, name, handle, address, status, default_currency, timezone, plan, tenant_id, created_at, updated_at)
+VALUES (gen_random_uuid(), $1, $2, $3, '', 'active', 'USD', 'UTC', $4, $5, now(), now())
 RETURNING *;
 
 -- name: GetStoresByTenantID :many
@@ -34,7 +38,7 @@ WHERE tenant_id = $1
 ORDER BY created_at DESC;
 
 -- name: GetStoresByTenantIDPaginated :many
-SELECT id, name, handle, address, status, default_currency, timezone, plan, tenant_id, created_at, updated_at
+SELECT id, gid, name, handle, address, status, default_currency, timezone, plan, tenant_id, created_at, updated_at
 FROM stores
 WHERE tenant_id = $1
   AND (

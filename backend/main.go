@@ -8,10 +8,12 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"strconv"
 	"sync/atomic"
 	"time"
 
 	"github.com/dfodeker/terminus/internal/database"
+	"github.com/dfodeker/terminus/internal/gid"
 	"github.com/dfodeker/terminus/internal/metrics"
 	mw "github.com/dfodeker/terminus/middleware"
 	"github.com/go-chi/chi/v5"
@@ -30,6 +32,8 @@ type apiConfig struct {
 	port           string
 	signingKey     string
 	sqlDB          *sql.DB
+	gidGen         *gid.Generator
+	baseDomain     string
 }
 
 func main() {
@@ -66,12 +70,34 @@ func main() {
 		log.Fatalf("Error Loading DBConn, %s", err)
 	}
 
+	// Initialize GID generator with machine ID from environment
+	machineIDStr := os.Getenv("MACHINE_ID")
+	machineID := uint16(0)
+	if machineIDStr != "" {
+		id, err := strconv.ParseUint(machineIDStr, 10, 16)
+		if err != nil {
+			log.Fatalf("Invalid MACHINE_ID: %s", err)
+		}
+		machineID = uint16(id)
+	}
+	gidGen, err := gid.NewGenerator(machineID)
+	if err != nil {
+		log.Fatalf("Failed to create GID generator: %s", err)
+	}
+
+	baseDomain := os.Getenv("BASE_DOMAIN")
+	if baseDomain == "" {
+		baseDomain = "storeos.org"
+	}
+
 	apiCfg := apiConfig{
 		db:         dbQueries,
 		platform:   platform,
 		port:       port,
 		sqlDB:      sqlDB,
 		signingKey: signingKey,
+		gidGen:     gidGen,
+		baseDomain: baseDomain,
 	}
 	metrics.Register(prometheus.DefaultRegisterer)
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
@@ -80,7 +106,7 @@ func main() {
 	slog.SetDefault(logger)
 	r := chi.NewRouter()
 	// r.Use(middleware.Logger)
-	// r.Use(middleware.Recoverer)
+	r.Use(middleware.Recoverer) // Recover from panics and log them
 	r.Use(mw.RequestID)
 	r.Use(mw.Metrics)
 	if apiCfg.platform == "dev" {
@@ -93,6 +119,16 @@ func main() {
 		1*time.Second, // per duration
 		httprate.WithKeyFuncs(httprate.KeyByIP, httprate.KeyByEndpoint),
 	))
+
+	// Subdomain and store resolution middleware
+	r.Use(mw.Subdomain(mw.SubdomainConfig{
+		BaseDomain:     apiCfg.baseDomain,
+		APISubdomain:   "api",
+		AdminSubdomain: "admin",
+	}))
+	r.Use(mw.StoreResolver(mw.StoreResolverConfig{
+		DB: dbQueries,
+	}))
 
 	r.Mount("/debug", middleware.Profiler())
 	r.Get("/", homeHandler)

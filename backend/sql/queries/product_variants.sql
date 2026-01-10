@@ -1,12 +1,16 @@
 -- name: CreateProductVariant :one
 INSERT INTO product_variants (
-    id, tenant_id, store_id, product_id, sku, barcode, title,
+    id, gid, tenant_id, store_id, product_id, sku, barcode, title,
     price_cents, compare_at_cents, option_values, status, created_at, updated_at
 )
 VALUES (
-    gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, now(), now()
+    gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, now(), now()
 )
 RETURNING *;
+
+-- name: GetProductVariantByGID :one
+SELECT * FROM product_variants
+WHERE gid = $1;
 
 -- name: GetProductVariantByID :one
 SELECT * FROM product_variants
@@ -23,7 +27,7 @@ WHERE store_id = $1
 ORDER BY created_at DESC;
 
 -- name: GetProductVariantsByProductIDPaginated :many
-SELECT id, tenant_id, store_id, product_id, sku, barcode, title,
+SELECT id, gid, tenant_id, store_id, product_id, sku, barcode, title,
        price_cents, compare_at_cents, option_values, status, created_at, updated_at
 FROM product_variants
 WHERE product_id = $1
@@ -67,6 +71,7 @@ WHERE product_id = $1;
 -- name: GetProductWithVariants :many
 SELECT
     p.id as product_id,
+    p.gid as product_gid,
     p.store_id,
     p.handle,
     p.name as product_name,
@@ -78,6 +83,7 @@ SELECT
     p.created_at as product_created_at,
     p.updated_at as product_updated_at,
     pv.id as variant_id,
+    pv.gid as variant_gid,
     pv.tenant_id,
     pv.sku as variant_sku,
     pv.barcode,
