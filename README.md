@@ -1,12 +1,5 @@
 # Terminus
-
-This project is a deliberately small but serious backend system designed to model how real production services behave under stress, change, and failure.
-
-At first glance, it looks like a simple store. Under the hood, it is an event-driven, multi-tenant backend that explores correctness, resilience, and operational discipline rather than surface-level product features.
-
-The backend is written in Go and implements an asynchronous checkout flow with idempotency, retries, background processing, and feature flags that genuinely alter runtime behavior. A lightweight Next.js frontend exists only to make the system easier to demo, inspect, and reason about—it is not the focus.
-
-As the system evolved, it grew into something closer to a “Shopify-lite” backend: capable of serving multiple stores, handling real scaling concerns, and supporting analytics, fault detection, and load testing. The goal is not completeness, but realism.
+A modern, multi-tenant e-commerce platform built with Go and Next.js. Similar to Shopify, it allows merchants to create online stores with customizable themes, manage products, process orders, and build integrations via a powerful API.
 
 ---
 

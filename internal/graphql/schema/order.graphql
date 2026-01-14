@@ -1,0 +1,291 @@
+# internal/graphql/schema/order.graphql
+
+type Order implements Node {
+  id: ID!
+  
+  """
+  Human-readable order number (unique per shop)
+  """
+  orderNumber: Int!
+  
+  """
+  Display name like "#1001"
+  """
+  name: String!
+  
+  """
+  Customer who placed the order
+  """
+  customer: Customer
+  
+  """
+  Contact email
+  """
+  email: String!
+  
+  """
+  Contact phone
+  """
+  phone: String
+  
+  """
+  Financial status
+  """
+  financialStatus: OrderFinancialStatus!
+  
+  """
+  Fulfillment status
+  """
+  fulfillmentStatus: OrderFulfillmentStatus
+  
+  """
+  Order line items
+  """
+  lineItems(first: Int, after: Cursor): OrderLineItemConnection!
+  
+  """
+  Pricing breakdown
+  """
+  subtotalPrice: Money!
+  totalDiscounts: Money!
+  totalShipping: Money!
+  totalTax: Money!
+  totalPrice: Money!
+  
+  """
+  Currency code (ISO 4217)
+  """
+  currencyCode: String!
+  
+  """
+  Shipping address
+  """
+  shippingAddress: Address
+  
+  """
+  Billing address
+  """
+  billingAddress: Address
+  
+  """
+  Order note from customer
+  """
+  note: String
+  
+  """
+  Fulfillments
+  """
+  fulfillments: [Fulfillment!]!
+  
+  """
+  Transactions (payments, refunds)
+  """
+  transactions: [Transaction!]!
+  
+  """
+  Whether order can be edited
+  """
+  canEdit: Boolean!
+  
+  """
+  Whether order can be cancelled
+  """
+  canCancel: Boolean!
+  
+  """
+  Source of the order
+  """
+  source: String!
+  
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  cancelledAt: DateTime
+  closedAt: DateTime
+}
+
+type OrderLineItem implements Node {
+  id: ID!
+  
+  """
+  Product (may be null if deleted)
+  """
+  product: Product
+  
+  """
+  Variant (may be null if deleted)
+  """
+  variant: ProductVariant
+  
+  """
+  Snapshot of title at time of order
+  """
+  title: String!
+  
+  """
+  Snapshot of variant title
+  """
+  variantTitle: String
+  
+  """
+  SKU at time of order
+  """
+  sku: String
+  
+  """
+  Quantity ordered
+  """
+  quantity: Int!
+  
+  """
+  Unit price
+  """
+  unitPrice: Money!
+  
+  """
+  Discount applied
+  """
+  discountAmount: Money!
+  
+  """
+  Total price (quantity * unitPrice - discount)
+  """
+  totalPrice: Money!
+  
+  """
+  Fulfillment status for this line
+  """
+  fulfillableQuantity: Int!
+  fulfilledQuantity: Int!
+}
+
+type Fulfillment implements Node {
+  id: ID!
+  order: Order!
+  status: FulfillmentStatus!
+  trackingNumber: String
+  trackingUrl: String
+  carrier: String
+  lineItems: [FulfillmentLineItem!]!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type FulfillmentLineItem {
+  lineItem: OrderLineItem!
+  quantity: Int!
+}
+
+type Transaction implements Node {
+  id: ID!
+  kind: TransactionKind!
+  status: TransactionStatus!
+  amount: Money!
+  gateway: String!
+  createdAt: DateTime!
+}
+
+enum OrderFinancialStatus {
+  PENDING
+  AUTHORIZED
+  PAID
+  PARTIALLY_PAID
+  REFUNDED
+  PARTIALLY_REFUNDED
+  VOIDED
+}
+
+enum OrderFulfillmentStatus {
+  UNFULFILLED
+  PARTIAL
+  FULFILLED
+}
+
+enum FulfillmentStatus {
+  PENDING
+  IN_TRANSIT
+  DELIVERED
+  FAILED
+}
+
+enum TransactionKind {
+  AUTHORIZATION
+  CAPTURE
+  SALE
+  REFUND
+  VOID
+}
+
+enum TransactionStatus {
+  PENDING
+  SUCCESS
+  FAILURE
+  ERROR
+}
+
+enum OrderSortKey {
+  ORDER_NUMBER
+  CREATED_AT
+  UPDATED_AT
+  TOTAL_PRICE
+  CUSTOMER_NAME
+}
+
+type OrderConnection {
+  edges: [OrderEdge!]!
+  nodes: [Order!]!
+  pageInfo: PageInfo!
+  totalCount: Int!
+}
+
+type OrderEdge {
+  cursor: Cursor!
+  node: Order!
+}
+
+type OrderLineItemConnection {
+  edges: [OrderLineItemEdge!]!
+  nodes: [OrderLineItem!]!
+  pageInfo: PageInfo!
+}
+
+type OrderLineItemEdge {
+  cursor: Cursor!
+  node: OrderLineItem!
+}
+
+input OrderInput {
+  email: String!
+  phone: String
+  customerId: ID
+  lineItems: [OrderLineItemInput!]!
+  shippingAddress: AddressInput
+  billingAddress: AddressInput
+  note: String
+}
+
+input OrderLineItemInput {
+  variantId: ID!
+  quantity: Int!
+}
+
+input OrderUpdateInput {
+  email: String
+  phone: String
+  note: String
+  shippingAddress: AddressInput
+}
+
+type OrderCreatePayload {
+  order: Order
+  userErrors: [UserError!]!
+}
+
+type OrderUpdatePayload {
+  order: Order
+  userErrors: [UserError!]!
+}
+
+type OrderCancelPayload {
+  order: Order
+  userErrors: [UserError!]!
+}

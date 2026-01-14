@@ -137,116 +137,170 @@ func main() {
 
 	r.Route("/api/v1", func(r chi.Router) {
 
+		// ============================================================
+		// PUBLIC ROUTES (No authentication required)
+		// ============================================================
+
+		// POST /api/v1/users - Register a new user
 		r.Post("/users", apiCfg.CreateUserHandler)
+
+		// GET /api/v1/users - List all users (public for now)
 		r.Get("/users", apiCfg.handlerGetUsers)
 
+		// ============================================================
+		// AUTHENTICATED ROUTES
+		// ============================================================
 		r.Group(func(r chi.Router) {
 			r.Use(apiCfg.requireAuth)
 
-			r.Route("/products", func(r chi.Router) {
-				r.Post("/", apiCfg.handlerTenantProductCreate)
-				r.Get("/", apiCfg.handlerTenantProductsList)
-
-				r.Route("/{productID}", func(r chi.Router) {
-					r.Get("/", apiCfg.handlerTenantProductGet)
-					r.Put("/", apiCfg.handlerTenantProductUpdate)
-					r.Delete("/", apiCfg.handlerTenantProductDelete)
-					r.Route("/variants", func(r chi.Router) {
-						r.Post("/", apiCfg.handlerTenantVariantCreate)
-						r.Get("/", apiCfg.handlerTenantVariantsList)
-						r.Route("/{variantID}", func(r chi.Router) {
-							r.Put("/", apiCfg.handlerTenantVariantUpdate)
-							r.Delete("/", apiCfg.handlerTenantVariantDelete)
-						})
-					})
-				})
-
-			})
-			r.Route("/variants", func(r chi.Router) {
-				r.Route("/{variantID}", func(r chi.Router) {
-					r.Get("/", apiCfg.handlerVariantGet)
-				})
-				r.Get("/", apiCfg.handlerTenantVariantsList)
-			})
+			// ------------------------------------------------------------
+			// STORE-BASED ROUTES (Primary user workflow)
+			// These are the main routes for merchants working with stores
+			// ------------------------------------------------------------
 			r.Route("/stores", func(r chi.Router) {
+				// POST /api/v1/stores - Create a new store
 				r.Post("/", apiCfg.handlerCreateStore)
+
+				// GET /api/v1/stores - List all stores for current user
 				r.Get("/", apiCfg.handlerGetStores)
-				r.Route("/{store}", func(r chi.Router) {
-					r.Post("/products", apiCfg.handlerCreateProducts)
-					r.Get("/products", apiCfg.handlerListProducts)
-				})
-			})
 
-			r.Route("/tenants", func(r chi.Router) {
-				r.Post("/", apiCfg.handlerTenantsCreate)
-				r.Get("/", apiCfg.handlerTenantsList)
+				r.Route("/{storeID}", func(r chi.Router) {
+					// Products within a store
+					r.Route("/products", func(r chi.Router) {
+						// POST /api/v1/stores/{storeID}/products - Create product
+						r.Post("/", apiCfg.handlerTenantProductCreate)
 
-				r.Route("/{tenantID}", func(r chi.Router) {
-					// Stores under tenant
-					r.Route("/stores", func(r chi.Router) {
-						r.Post("/", apiCfg.handlerTenantStoresCreate)
-						r.Get("/", apiCfg.handlerTenantStoresList)
+						// GET /api/v1/stores/{storeID}/products - List products
+						r.Get("/", apiCfg.handlerTenantProductsList)
 
-						r.Route("/{storeID}", func(r chi.Router) {
-							// Products
-							r.Route("/products", func(r chi.Router) {
-								r.Post("/", apiCfg.handlerTenantProductCreate)
-								r.Get("/", apiCfg.handlerTenantProductsList)
+						r.Route("/{productID}", func(r chi.Router) {
+							// GET /api/v1/stores/{storeID}/products/{productID} - Get product
+							r.Get("/", apiCfg.handlerTenantProductGet)
 
-								r.Route("/{productID}", func(r chi.Router) {
-									r.Get("/", apiCfg.handlerTenantProductGet)
-									r.Put("/", apiCfg.handlerTenantProductUpdate)
-									r.Delete("/", apiCfg.handlerTenantProductDelete)
+							// PUT /api/v1/stores/{storeID}/products/{productID} - Update product
+							r.Put("/", apiCfg.handlerTenantProductUpdate)
 
-									// Variants
-									r.Route("/variants", func(r chi.Router) {
-										r.Post("/", apiCfg.handlerTenantVariantCreate)
+							// DELETE /api/v1/stores/{storeID}/products/{productID} - Delete product
+							r.Delete("/", apiCfg.handlerTenantProductDelete)
 
-										r.Route("/{variantID}", func(r chi.Router) {
-											r.Put("/", apiCfg.handlerTenantVariantUpdate)
-											r.Delete("/", apiCfg.handlerTenantVariantDelete)
-										})
-									})
+							// Variants within a product
+							r.Route("/variants", func(r chi.Router) {
+								// POST /api/v1/stores/{storeID}/products/{productID}/variants - Create variant
+								r.Post("/", apiCfg.handlerTenantVariantCreate)
+
+								// GET /api/v1/stores/{storeID}/products/{productID}/variants - List variants
+								r.Get("/", apiCfg.handlerTenantVariantsList)
+
+								r.Route("/{variantID}", func(r chi.Router) {
+									// PUT /api/v1/stores/{storeID}/products/{productID}/variants/{variantID} - Update variant
+									r.Put("/", apiCfg.handlerTenantVariantUpdate)
+
+									// DELETE /api/v1/stores/{storeID}/products/{productID}/variants/{variantID} - Delete variant
+									r.Delete("/", apiCfg.handlerTenantVariantDelete)
 								})
 							})
 						})
 					})
+				})
+			})
 
-					// Members management
+			// ------------------------------------------------------------
+			// VARIANT DIRECT ACCESS (Convenience routes)
+			// ------------------------------------------------------------
+			r.Route("/variants", func(r chi.Router) {
+				// GET /api/v1/variants - List all variants (across stores)
+				r.Get("/", apiCfg.handlerTenantVariantsList)
+
+				r.Route("/{variantID}", func(r chi.Router) {
+					// GET /api/v1/variants/{variantID} - Get variant by ID
+					r.Get("/", apiCfg.handlerVariantGet)
+				})
+			})
+
+			// ------------------------------------------------------------
+			// TENANT ADMIN ROUTES (Organization management)
+			// These are for tenant owners/admins to manage their organization
+			// ------------------------------------------------------------
+			r.Route("/tenants", func(r chi.Router) {
+				// POST /api/v1/tenants - Create a new tenant/organization
+				r.Post("/", apiCfg.handlerTenantsCreate)
+
+				// GET /api/v1/tenants - List tenants for current user
+				r.Get("/", apiCfg.handlerTenantsList)
+
+				r.Route("/{tenantID}", func(r chi.Router) {
+					// Store management under tenant
+					r.Route("/stores", func(r chi.Router) {
+						// POST /api/v1/tenants/{tenantID}/stores - Create store for tenant
+						r.Post("/", apiCfg.handlerTenantStoresCreate)
+
+						// GET /api/v1/tenants/{tenantID}/stores - List stores for tenant
+						r.Get("/", apiCfg.handlerTenantStoresList)
+					})
+
+					// Member management
 					r.Route("/members", func(r chi.Router) {
+						// GET /api/v1/tenants/{tenantID}/members - List tenant members
 						r.Get("/", apiCfg.handlerTenantMembersList)
+
+						// POST /api/v1/tenants/{tenantID}/members/invite - Invite new member
 						r.Post("/invite", apiCfg.handlerTenantMembersInvite)
 
 						r.Route("/{memberID}/roles", func(r chi.Router) {
+							// POST /api/v1/tenants/{tenantID}/members/{memberID}/roles - Assign role to member
 							r.Post("/", apiCfg.handlerTenantMemberAssignRole)
+
+							// DELETE /api/v1/tenants/{tenantID}/members/{memberID}/roles/{roleID} - Remove role from member
 							r.Delete("/{roleID}", apiCfg.handlerTenantMemberRemoveRole)
 						})
 					})
 
-					// Roles management
+					// Role management
 					r.Route("/roles", func(r chi.Router) {
+						// POST /api/v1/tenants/{tenantID}/roles - Create role
 						r.Post("/", apiCfg.handlerTenantRolesCreate)
+
+						// GET /api/v1/tenants/{tenantID}/roles - List roles
 						r.Get("/", apiCfg.handlerTenantRolesList)
 
 						r.Route("/{roleID}/permissions", func(r chi.Router) {
+							// POST /api/v1/tenants/{tenantID}/roles/{roleID}/permissions - Add permission to role
 							r.Post("/", apiCfg.handlerTenantRoleAddPermission)
+
+							// DELETE /api/v1/tenants/{tenantID}/roles/{roleID}/permissions/{permissionKey} - Remove permission
 							r.Delete("/{permissionKey}", apiCfg.handlerTenantRoleRemovePermission)
 						})
 					})
 				})
 			})
 
-			// Global permissions list (available to all authenticated users)
-			r.Get("/permissions", apiCfg.handlerPermissionsList)
+			// ------------------------------------------------------------
+			// GLOBAL RESOURCES
+			// ------------------------------------------------------------
 
-			// Add more protected routes here and they all get auth automatically.
+			// GET /api/v1/permissions - List all available permissions
+			r.Get("/permissions", apiCfg.handlerPermissionsList)
 		})
 	})
 
+	// ============================================================
+	// AUTH ROUTES (No /api/v1 prefix)
+	// ============================================================
+
+	// POST /login - Authenticate user and get tokens
 	r.Post("/login", apiCfg.handlerLoginUsers)
+
+	// POST /refresh - Refresh access token
 	r.Post("/refresh", apiCfg.handlerRefresh)
+
+	// POST /revoke - Revoke refresh token
 	r.Post("/revoke", apiCfg.handlerRevoke)
 
+	// ============================================================
+	// ADMIN ROUTES (Development/testing only)
+	// ============================================================
+
+	// POST /admin/reset - Reset database (dev only)
 	r.Post("/admin/reset", apiCfg.handlerReset)
 
 	srv := &http.Server{

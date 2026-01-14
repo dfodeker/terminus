@@ -1,0 +1,140 @@
+# internal/graphql/schema/customer.graphql
+
+type Customer implements Node {
+  id: ID!
+  
+  email: String!
+  phone: String
+  firstName: String
+  lastName: String
+  
+  """
+  Full display name
+  """
+  displayName: String!
+  
+  """
+  Whether customer accepts marketing
+  """
+  acceptsMarketing: Boolean!
+  
+  """
+  Customer addresses
+  """
+  addresses(first: Int, after: Cursor): AddressConnection!
+  
+  """
+  Default shipping address
+  """
+  defaultAddress: Address
+  
+  """
+  Orders placed by this customer
+  """
+  orders(first: Int, after: Cursor, sortKey: OrderSortKey, reverse: Boolean): OrderConnection!
+  
+  """
+  Statistics
+  """
+  ordersCount: Int!
+  totalSpent: Money!
+  
+  """
+  Account status
+  """
+  status: CustomerStatus!
+  
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type Address {
+  firstName: String
+  lastName: String
+  company: String
+  address1: String!
+  address2: String
+  city: String!
+  province: String
+  provinceCode: String
+  country: String!
+  countryCode: String!
+  zip: String
+  phone: String
+  
+  """
+  Formatted address lines
+  """
+  formatted: [String!]!
+}
+
+enum CustomerStatus {
+  ACTIVE
+  DISABLED
+}
+
+enum CustomerSortKey {
+  NAME
+  EMAIL
+  CREATED_AT
+  UPDATED_AT
+  ORDERS_COUNT
+  TOTAL_SPENT
+}
+
+type CustomerConnection {
+  edges: [CustomerEdge!]!
+  nodes: [Customer!]!
+  pageInfo: PageInfo!
+  totalCount: Int!
+}
+
+type CustomerEdge {
+  cursor: Cursor!
+  node: Customer!
+}
+
+type AddressConnection {
+  edges: [AddressEdge!]!
+  nodes: [Address!]!
+  pageInfo: PageInfo!
+}
+
+type AddressEdge {
+  cursor: Cursor!
+  node: Address!
+}
+
+input CustomerInput {
+  email: String
+  phone: String
+  firstName: String
+  lastName: String
+  acceptsMarketing: Boolean
+  addresses: [AddressInput!]
+}
+
+input AddressInput {
+  firstName: String
+  lastName: String
+  company: String
+  address1: String!
+  address2: String
+  city: String!
+  province: String
+  provinceCode: String
+  country: String!
+  countryCode: String!
+  zip: String
+  phone: String
+}
+
+type CustomerCreatePayload {
+  customer: Customer
+  userErrors: [UserError!]!
+}
+
+type CustomerUpdatePayload {
+  customer: Customer
+  userErrors: [UserError!]!
+}
