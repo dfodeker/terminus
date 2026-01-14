@@ -33,9 +33,9 @@ func NewShopRepository(pool *pgxpool.Pool) *ShopRepository {
 	}
 }
 
-func (r *ShopRepository) Create(ctx context.Context, orgID uuid.UUID, shop *domain.Shop) error {
+func (r *ShopRepository) Create(ctx context.Context, shop *domain.Shop) error {
 	row, err := r.queries.CreateShop(ctx, db.CreateShopParams{
-		OrganizationID: orgID,
+		OrganizationID: shop.OrganizationID,
 		Name:           shop.Name,
 		Handle:         shop.MyShopifyDomain, // using subdomain as handle for now
 		Subdomain:      shop.MyShopifyDomain,
@@ -312,12 +312,3 @@ func rowToShop(row db.Shop) *domain.Shop {
 	return shop
 }
 
-// isPgUniqueViolation checks if the error is a PostgreSQL unique constraint violation
-func isPgUniqueViolation(err error) bool {
-	// Check for pgx error code 23505 (unique_violation)
-	var pgErr interface{ Code() string }
-	if errors.As(err, &pgErr) {
-		return pgErr.Code() == "23505"
-	}
-	return false
-}

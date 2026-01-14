@@ -4,10 +4,10 @@ package resolver
 import (
 	"context"
 
-	"yourapp/internal/domain"
-	"yourapp/internal/graphql/generated"
-	"yourapp/internal/graphql/model"
-	"yourapp/internal/graphql/scalar"
+	"github.com/dfodeker/storeos/internal/domain"
+	"github.com/dfodeker/storeos/internal/graphql/generated"
+	"github.com/dfodeker/storeos/internal/graphql/model"
+	"github.com/dfodeker/storeos/internal/graphql/scalar"
 )
 
 type productResolver struct{ *Resolver }

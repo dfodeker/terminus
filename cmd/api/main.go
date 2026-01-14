@@ -3,6 +3,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -11,46 +12,54 @@ import (
 	"time"
 
 	"github.com/dfodeker/storeos/internal/adapters/postgres"
+	redisadapter "github.com/dfodeker/storeos/internal/adapters/redis"
 	"github.com/dfodeker/storeos/internal/config"
-	"github.com/dfodeker/storeos/internal/graphql"
-	"github.com/dfodeker/storeos/internal/graphql/dataloader"
-	"github.com/dfodeker/storeos/internal/graphql/resolver"
+	"github.com/dfodeker/storeos/internal/http/middleware"
 	"github.com/go-chi/chi/v5"
 	chimw "github.com/go-chi/chi/v5/middleware"
-	"github.com/redis/go-redis/v9"
-
-	redisadapter "yourapp/internal/adapters/redis"
-
-	httpserver "yourapp/internal/http"
-	httphandlers "yourapp/internal/http/handlers"
-	"yourapp/internal/http/middleware"
+	goredis "github.com/redis/go-redis/v9"
 )
 
 func main() {
 	ctx := context.Background()
 	cfg, err := config.Load()
 	if err != nil {
-		log.Fatalf("yolo")
+		log.Fatalf("failed to load config: %v", err)
 	}
 
 	// =========================================================================
 	// Infrastructure
 	// =========================================================================
 
-	// Postgres
-	pool, err := postgres.NewPool(ctx, cfg.Database)
+	// Postgres - convert config types
+	pgCfg := postgres.Config{
+		Host:     cfg.Database.Host,
+		Port:     cfg.Database.Port,
+		User:     cfg.Database.User,
+		Password: cfg.Database.Password,
+		Database: cfg.Database.Database,
+		MaxConns: cfg.Database.MaxConns,
+		MinConns: cfg.Database.MinConns,
+	}
+
+	pool, err := postgres.NewPool(ctx, pgCfg)
 	if err != nil {
 		log.Fatalf("failed to connect to database: %v", err)
 	}
 	defer pool.Close()
 
-	tenantDB := postgres.NewTenantDB(pool)
-
 	// Redis
-	redisClient := redis.NewClient(&redis.Options{
-		Addr: cfg.Redis.Addr,
+	redisClient := goredis.NewClient(&goredis.Options{
+		Addr:     cfg.Redis.Addr(),
+		Password: cfg.Redis.Password,
+		DB:       cfg.Redis.DB,
 	})
 	defer redisClient.Close()
+
+	// Test Redis connection
+	if err := redisClient.Ping(ctx).Err(); err != nil {
+		log.Printf("warning: redis connection failed: %v", err)
+	}
 
 	cache := redisadapter.NewCache(redisClient)
 
@@ -58,42 +67,17 @@ func main() {
 	// Repositories
 	// =========================================================================
 
-	productRepo := postgres.NewProductRepository(tenantDB)
-	// orderRepo := postgres.NewOrderRepository(tenantDB)
-	// customerRepo := postgres.NewCustomerRepository(tenantDB)
-	shopRepo := postgres.NewShopRepository(pool) // No tenant context needed
-	// credentialRepo := postgres.NewAPICredentialRepository(pool)
-
-	// =========================================================================
-	// Application Services
-	// =========================================================================
-
-	productService := productRepo.NewService(productRepo, cache, nil)
-	// orderService := order.NewService(orderRepo, productRepo, customerRepo, cache, nil)
-	// customerService := custome.NewService(customerRepo, cache)
+	shopRepo := postgres.NewShopRepository(pool)
+	userRepo := postgres.NewUserRepository(pool)
+	credentialRepo := postgres.NewAPICredentialRepository(pool)
+	oauthInstallationRepo := postgres.NewOAuthInstallationRepository(pool)
 
 	// =========================================================================
 	// HTTP Middleware
 	// =========================================================================
 
-	authMiddleware := middleware.NewAPIAuthMiddleware(credentialRepo, nil, shopRepo, cache)
+	authMiddleware := middleware.NewAPIAuthMiddleware(credentialRepo, oauthInstallationRepo, shopRepo, cache)
 	rateLimiter := middleware.NewRateLimiter(redisClient)
-
-	// =========================================================================
-	// REST Handlers
-	// =========================================================================
-
-	productHandler := httphandlers.NewProductHandler(productService)
-	orderHandler := httphandlers.NewOrderHandler(orderService)
-	customerHandler := httphandlers.NewCustomerHandler(customerService)
-
-	// =========================================================================
-	// GraphQL
-	// =========================================================================
-
-	loaders := dataloader.NewLoaders(productRepo, customerRepo)
-	gqlResolver := resolver.NewResolver(productService, orderService, customerService, loaders)
-	gqlServer := graphql.NewServer(gqlResolver, loaders)
 
 	// =========================================================================
 	// Router
@@ -113,34 +97,43 @@ func main() {
 		w.Write([]byte("OK"))
 	})
 
-	// REST API
-	r.Mount("/api/2025-01", httpserver.NewRouter(
-		authMiddleware,
-		rateLimiter,
-		productHandler,
-		orderHandler,
-		customerHandler,
-		nil, // webhook handler
-	))
+	// API routes with auth
+	r.Route("/api/v1", func(r chi.Router) {
+		r.Use(authMiddleware.Handler)
+		r.Use(rateLimiter.Handler)
 
-	// GraphQL API
-	r.Mount("/", gqlServer.Routes(authMiddleware, rateLimiter))
+		// User info endpoint
+		r.Get("/me", func(w http.ResponseWriter, r *http.Request) {
+			auth := middleware.AuthFromContext(r.Context())
+			if auth == nil {
+				http.Error(w, "unauthorized", http.StatusUnauthorized)
+				return
+			}
+
+			w.Header().Set("Content-Type", "application/json")
+			fmt.Fprintf(w, `{"shop_id": "%s", "auth_type": "%s"}`, auth.ShopID, auth.AuthType)
+		})
+	})
+
+	// Keep track of unused variables to satisfy compiler
+	_ = userRepo
 
 	// =========================================================================
 	// Server
 	// =========================================================================
 
+	addr := fmt.Sprintf(":%d", cfg.Server.Port)
 	srv := &http.Server{
-		Addr:         ":" + cfg.Port,
+		Addr:         addr,
 		Handler:      r,
-		ReadTimeout:  10 * time.Second,
-		WriteTimeout: 30 * time.Second,
-		IdleTimeout:  60 * time.Second,
+		ReadTimeout:  cfg.Server.ReadTimeout,
+		WriteTimeout: cfg.Server.WriteTimeout,
+		IdleTimeout:  cfg.Server.IdleTimeout,
 	}
 
 	// Graceful shutdown
 	go func() {
-		log.Printf("Starting server on port %s", cfg.Port)
+		log.Printf("Starting server on %s", addr)
 		if err := srv.ListenAndServe(); err != http.ErrServerClosed {
 			log.Fatalf("Server error: %v", err)
 		}
@@ -152,10 +145,10 @@ func main() {
 
 	log.Println("Shutting down...")
 
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), cfg.Server.ShutdownTimeout)
 	defer cancel()
 
-	if err := srv.Shutdown(ctx); err != nil {
+	if err := srv.Shutdown(shutdownCtx); err != nil {
 		log.Fatalf("Shutdown error: %v", err)
 	}
 

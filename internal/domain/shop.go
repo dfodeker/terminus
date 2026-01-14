@@ -4,10 +4,14 @@ import (
 	"fmt"
 	"strings"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 // Shop represents a store/shop entity with all its configuration and metadata.
 type Shop struct {
+	ID                              uuid.UUID  `json:"uuid"`           // Internal UUID
+	OrganizationID                  uuid.UUID  `json:"organization_id"` // Owning organization
 	Id                              uint64     `json:"id"`
 	Name                            string     `json:"name"`
 	ShopOwner                       string     `json:"shop_owner"`

@@ -3,12 +3,15 @@ package resolver
 
 import (
 	"context"
+	"fmt"
+	"time"
 
-	"yourapp/internal/domain"
-	"yourapp/internal/graphql/generated"
-	"yourapp/internal/graphql/model"
-	"yourapp/internal/graphql/scalar"
-	"yourapp/internal/http/middleware"
+	"github.com/dfodeker/storeos/internal/application/product"
+	"github.com/dfodeker/storeos/internal/domain"
+	"github.com/dfodeker/storeos/internal/graphql/generated"
+	"github.com/dfodeker/storeos/internal/graphql/model"
+	"github.com/dfodeker/storeos/internal/graphql/scalar"
+	"github.com/dfodeker/storeos/internal/http/middleware"
 )
 
 type queryResolver struct{ *Resolver }

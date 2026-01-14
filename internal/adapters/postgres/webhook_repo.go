@@ -36,7 +36,7 @@ func NewWebhookRepository(pool *pgxpool.Pool) *WebhookRepository {
 func (r *WebhookRepository) Create(ctx context.Context, webhook *domain.Webhook) error {
 	row, err := r.queries.CreateWebhook(ctx, db.CreateWebhookParams{
 		OrganizationID: webhook.OrganizationID,
-		ShopID:         uuidToPgtype(webhook.ShopID),
+		ShopID:         uuidPtrToPgtype(webhook.ShopID),
 		Topic:          webhook.Topic,
 		EndpointUrl:    webhook.EndpointURL,
 		SecretHash:     webhook.SecretHash,
@@ -230,12 +230,7 @@ func rowToWebhook(row db.Webhook) *domain.Webhook {
 	return webhook
 }
 
-func uuidToPgtype(id *uuid.UUID) pgtype.UUID {
-	if id == nil {
-		return pgtype.UUID{Valid: false}
-	}
-	return pgtype.UUID{Bytes: *id, Valid: true}
-}
+// NOTE: use uuidPtrToPgtype from helpers.go for *uuid.UUID conversions
 
 func optionalTextToPgtype(s *string) pgtype.Text {
 	if s == nil {
@@ -288,7 +283,7 @@ func (r *WebhookDeliveryRepository) Create(ctx context.Context, delivery *domain
 	row, err := r.queries.CreateWebhookDelivery(ctx, db.CreateWebhookDeliveryParams{
 		WebhookID:      delivery.WebhookID,
 		OrganizationID: delivery.OrganizationID,
-		ShopID:         uuidToPgtype(delivery.ShopID),
+		ShopID:         uuidPtrToPgtype(delivery.ShopID),
 		Topic:          delivery.Topic,
 		EndpointUrl:    delivery.EndpointURL,
 		RequestHeaders: headersJSON,

@@ -7,8 +7,8 @@ import (
 
 	"github.com/99designs/gqlgen/graphql"
 
-	"yourapp/internal/domain"
-	"yourapp/internal/http/middleware"
+	"github.com/dfodeker/storeos/internal/domain"
+	"github.com/dfodeker/storeos/internal/http/middleware"
 )
 
 type DirectiveConfig struct{}

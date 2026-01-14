@@ -67,6 +67,7 @@ type UserRepository interface {
 	Create(ctx context.Context, user *domain.User) error
 	Update(ctx context.Context, user *domain.User) error
 	Delete(ctx context.Context, id uuid.UUID) error
+	UpdateLastLogin(ctx context.Context, id uuid.UUID) error
 }
 
 type APICredentialRepository interface {

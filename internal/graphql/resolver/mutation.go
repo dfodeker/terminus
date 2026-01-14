@@ -4,11 +4,11 @@ package resolver
 import (
 	"context"
 
-	"yourapp/internal/application/product"
-	"yourapp/internal/domain"
-	"yourapp/internal/graphql/generated"
-	"yourapp/internal/graphql/model"
-	"yourapp/internal/http/middleware"
+	"github.com/dfodeker/storeos/internal/application/product"
+	"github.com/dfodeker/storeos/internal/domain"
+	"github.com/dfodeker/storeos/internal/graphql/generated"
+	"github.com/dfodeker/storeos/internal/graphql/model"
+	"github.com/dfodeker/storeos/internal/http/middleware"
 )
 
 type mutationResolver struct{ *Resolver }

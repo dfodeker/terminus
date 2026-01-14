@@ -3,6 +3,7 @@ package middleware
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/base64"
 	"net/http"
 	"strings"
@@ -156,10 +157,40 @@ func (m *APIAuthMiddleware) buildAuthContext(ctx context.Context, cred *domain.A
 }
 
 func (m *APIAuthMiddleware) authenticateOAuthToken(ctx context.Context, r *http.Request, token string) (*AuthContext, error) {
-	// Similar flow for OAuth tokens
-	// Hash token, lookup installation, validate, return context
-	// ...
-	return nil, nil
+	// Hash token for lookup
+	tokenHash := hashToken(token)
+
+	// Look up installation by access token hash
+	installation, err := m.installationRepo.GetByAccessToken(ctx, tokenHash)
+	if err != nil {
+		return nil, domain.ErrInvalidToken
+	}
+
+	// Validate installation status
+	if installation.Status != domain.InstallationStatusActive {
+		return nil, domain.ErrCredentialRevoked
+	}
+
+	// Get the shop for context
+	shop, err := m.shopRepo.GetByID(ctx, installation.ShopID)
+	if err != nil {
+		return nil, err
+	}
+
+	return &AuthContext{
+		ShopID:         installation.ShopID,
+		Shop:           shop,
+		AuthType:       AuthTypeOAuth,
+		Scopes:         domain.NewScopeSet(installation.Scopes),
+		InstallationID: &installation.ID,
+	}, nil
+}
+
+// hashToken creates a SHA256 hash of a token for storage/lookup
+func hashToken(token string) string {
+	h := sha256.New()
+	h.Write([]byte(token))
+	return base64.StdEncoding.EncodeToString(h.Sum(nil))
 }
 
 func (m *APIAuthMiddleware) authenticateBasicAuth(ctx context.Context, r *http.Request, authHeader string) (*AuthContext, error) {

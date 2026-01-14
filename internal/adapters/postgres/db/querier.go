@@ -38,8 +38,12 @@ type Querier interface {
 	CountWebhookDeliveriesByWebhook(ctx context.Context, webhookID uuid.UUID) (int64, error)
 	CountWebhooksByOrganization(ctx context.Context, organizationID uuid.UUID) (int64, error)
 	CountWebhooksByShop(ctx context.Context, shopID pgtype.UUID) (int64, error)
+	// db/queries/api_credentials.sql
+	CreateAPICredential(ctx context.Context, arg CreateAPICredentialParams) (ApiCredential, error)
 	// db/queries/customers.sql
 	CreateCustomer(ctx context.Context, arg CreateCustomerParams) (Customer, error)
+	// db/queries/oauth_installations.sql
+	CreateOAuthInstallation(ctx context.Context, arg CreateOAuthInstallationParams) (OauthInstallation, error)
 	// db/queries/orders.sql
 	CreateOrder(ctx context.Context, arg CreateOrderParams) (Order, error)
 	CreateOrderLineItem(ctx context.Context, arg CreateOrderLineItemParams) (OrderLineItem, error)
@@ -47,17 +51,27 @@ type Querier interface {
 	CreateOrganization(ctx context.Context, arg CreateOrganizationParams) (Organization, error)
 	// db/queries/products.sql
 	CreateProduct(ctx context.Context, arg CreateProductParams) (Product, error)
+	// db/queries/refresh_tokens.sql
+	CreateRefreshToken(ctx context.Context, arg CreateRefreshTokenParams) (RefreshToken, error)
 	CreateShop(ctx context.Context, arg CreateShopParams) (Shop, error)
 	// db/queries/users.sql
 	CreateUser(ctx context.Context, arg CreateUserParams) (User, error)
 	CreateWebhook(ctx context.Context, arg CreateWebhookParams) (Webhook, error)
 	CreateWebhookDelivery(ctx context.Context, arg CreateWebhookDeliveryParams) (WebhookDelivery, error)
 	DeductInventory(ctx context.Context, arg DeductInventoryParams) (Product, error)
+	DeleteAPICredential(ctx context.Context, id uuid.UUID) error
+	DeleteExpiredRefreshTokens(ctx context.Context) error
+	DeleteOAuthInstallation(ctx context.Context, id uuid.UUID) error
 	DeleteOldWebhookDeliveries(ctx context.Context, createdAt time.Time) error
 	DeleteShop(ctx context.Context, id uuid.UUID) error
 	DeleteWebhook(ctx context.Context, id uuid.UUID) error
+	GetAPICredentialByID(ctx context.Context, id uuid.UUID) (ApiCredential, error)
+	GetAPICredentialByPrefix(ctx context.Context, keyPrefix string) (ApiCredential, error)
 	GetCustomerByEmail(ctx context.Context, arg GetCustomerByEmailParams) (Customer, error)
 	GetCustomerByID(ctx context.Context, id uuid.UUID) (Customer, error)
+	GetOAuthInstallationByAccessToken(ctx context.Context, accessTokenHash string) (OauthInstallation, error)
+	GetOAuthInstallationByID(ctx context.Context, id uuid.UUID) (OauthInstallation, error)
+	GetOAuthInstallationByShopAndApp(ctx context.Context, arg GetOAuthInstallationByShopAndAppParams) (OauthInstallation, error)
 	GetOrderByID(ctx context.Context, id uuid.UUID) (Order, error)
 	GetOrderByNumber(ctx context.Context, arg GetOrderByNumberParams) (Order, error)
 	GetOrderLineItems(ctx context.Context, orderID uuid.UUID) ([]OrderLineItem, error)
@@ -69,6 +83,8 @@ type Querier interface {
 	GetOrganizationMember(ctx context.Context, arg GetOrganizationMemberParams) (OrganizationMember, error)
 	GetProductByHandle(ctx context.Context, arg GetProductByHandleParams) (Product, error)
 	GetProductByID(ctx context.Context, id uuid.UUID) (Product, error)
+	GetRefreshTokenByHash(ctx context.Context, tokenHash string) (RefreshToken, error)
+	GetRefreshTokenByID(ctx context.Context, id uuid.UUID) (RefreshToken, error)
 	GetShopByCustomDomain(ctx context.Context, customDomain pgtype.Text) (Shop, error)
 	GetShopByGID(ctx context.Context, gid pgtype.Int8) (Shop, error)
 	GetShopByHandle(ctx context.Context, arg GetShopByHandleParams) (Shop, error)
@@ -82,8 +98,11 @@ type Querier interface {
 	IncrementWebhookFailureCount(ctx context.Context, arg IncrementWebhookFailureCountParams) (Webhook, error)
 	IsOrganizationAdmin(ctx context.Context, arg IsOrganizationAdminParams) (bool, error)
 	IsOrganizationOwner(ctx context.Context, arg IsOrganizationOwnerParams) (bool, error)
+	ListAPICredentialsByOrganization(ctx context.Context, arg ListAPICredentialsByOrganizationParams) ([]ApiCredential, error)
+	ListAPICredentialsByShop(ctx context.Context, arg ListAPICredentialsByShopParams) ([]ApiCredential, error)
 	ListCustomersByOrganization(ctx context.Context, arg ListCustomersByOrganizationParams) ([]Customer, error)
 	ListCustomersByShop(ctx context.Context, arg ListCustomersByShopParams) ([]Customer, error)
+	ListOAuthInstallationsByShop(ctx context.Context, shopID uuid.UUID) ([]OauthInstallation, error)
 	ListOrdersByCustomer(ctx context.Context, arg ListOrdersByCustomerParams) ([]Order, error)
 	ListOrdersByOrganization(ctx context.Context, arg ListOrdersByOrganizationParams) ([]Order, error)
 	ListOrdersByShop(ctx context.Context, arg ListOrdersByShopParams) ([]Order, error)
@@ -93,6 +112,7 @@ type Querier interface {
 	ListProductsByIDs(ctx context.Context, ids []uuid.UUID) ([]Product, error)
 	ListProductsByOrganization(ctx context.Context, arg ListProductsByOrganizationParams) ([]Product, error)
 	ListProductsByShop(ctx context.Context, arg ListProductsByShopParams) ([]Product, error)
+	ListRefreshTokensByUser(ctx context.Context, userID uuid.UUID) ([]RefreshToken, error)
 	ListShopsByOrganization(ctx context.Context, arg ListShopsByOrganizationParams) ([]Shop, error)
 	ListShopsByOrganizationWithStatus(ctx context.Context, arg ListShopsByOrganizationWithStatusParams) ([]Shop, error)
 	ListUserOrganizations(ctx context.Context, userID uuid.UUID) ([]ListUserOrganizationsRow, error)
@@ -109,6 +129,9 @@ type Querier interface {
 	PublishProduct(ctx context.Context, id uuid.UUID) (Product, error)
 	RemoveOrganizationMember(ctx context.Context, arg RemoveOrganizationMemberParams) error
 	ResetWebhookFailureCount(ctx context.Context, id uuid.UUID) (Webhook, error)
+	RevokeAPICredential(ctx context.Context, id uuid.UUID) (ApiCredential, error)
+	RevokeAllUserRefreshTokens(ctx context.Context, userID uuid.UUID) error
+	RevokeRefreshToken(ctx context.Context, id uuid.UUID) error
 	SearchCustomers(ctx context.Context, arg SearchCustomersParams) ([]Customer, error)
 	SearchProducts(ctx context.Context, arg SearchProductsParams) ([]Product, error)
 	SearchUsers(ctx context.Context, arg SearchUsersParams) ([]User, error)
@@ -121,12 +144,16 @@ type Querier interface {
 	SoftDeleteOrganization(ctx context.Context, id uuid.UUID) error
 	SoftDeleteProduct(ctx context.Context, id uuid.UUID) error
 	SoftDeleteUser(ctx context.Context, id uuid.UUID) error
+	UninstallOAuthInstallation(ctx context.Context, id uuid.UUID) (OauthInstallation, error)
 	UnpublishProduct(ctx context.Context, id uuid.UUID) (Product, error)
+	UpdateAPICredential(ctx context.Context, arg UpdateAPICredentialParams) (ApiCredential, error)
+	UpdateAPICredentialLastUsed(ctx context.Context, id uuid.UUID) error
 	UpdateCustomer(ctx context.Context, arg UpdateCustomerParams) (Customer, error)
 	UpdateCustomerStats(ctx context.Context, arg UpdateCustomerStatsParams) error
 	UpdateLastLogin(ctx context.Context, id uuid.UUID) error
 	UpdateLineItemFulfillment(ctx context.Context, arg UpdateLineItemFulfillmentParams) (OrderLineItem, error)
 	UpdateMarketingOptIn(ctx context.Context, arg UpdateMarketingOptInParams) (Customer, error)
+	UpdateOAuthInstallation(ctx context.Context, arg UpdateOAuthInstallationParams) (OauthInstallation, error)
 	UpdateOrderRefund(ctx context.Context, arg UpdateOrderRefundParams) (Order, error)
 	UpdateOrderStatus(ctx context.Context, arg UpdateOrderStatusParams) (Order, error)
 	UpdateOrganization(ctx context.Context, arg UpdateOrganizationParams) (Organization, error)
@@ -135,6 +162,7 @@ type Querier interface {
 	UpdateOrganizationStatus(ctx context.Context, arg UpdateOrganizationStatusParams) (Organization, error)
 	UpdateProduct(ctx context.Context, arg UpdateProductParams) (Product, error)
 	UpdateProductStatus(ctx context.Context, arg UpdateProductStatusParams) (Product, error)
+	UpdateRefreshTokenLastUsed(ctx context.Context, id uuid.UUID) error
 	UpdateShop(ctx context.Context, arg UpdateShopParams) (Shop, error)
 	UpdateShopStatus(ctx context.Context, arg UpdateShopStatusParams) (Shop, error)
 	UpdateUser(ctx context.Context, arg UpdateUserParams) (User, error)

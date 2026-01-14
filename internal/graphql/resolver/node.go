@@ -5,9 +5,9 @@ import (
 	"context"
 	"fmt"
 
-	"yourapp/internal/domain"
-	"yourapp/internal/graphql/model"
-	"yourapp/internal/http/middleware"
+	"github.com/dfodeker/storeos/internal/domain"
+	"github.com/dfodeker/storeos/internal/graphql/model"
+	"github.com/dfodeker/storeos/internal/http/middleware"
 )
 
 // Node resolves any object by its GID

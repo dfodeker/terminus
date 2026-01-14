@@ -151,6 +151,19 @@ type FulfillmentLineItem struct {
 	CreatedAt       time.Time `json:"created_at"`
 }
 
+type OauthInstallation struct {
+	ID              uuid.UUID          `json:"id"`
+	ShopID          uuid.UUID          `json:"shop_id"`
+	AppID           uuid.UUID          `json:"app_id"`
+	AccessTokenHash string             `json:"access_token_hash"`
+	Scopes          []string           `json:"scopes"`
+	Status          string             `json:"status"`
+	InstalledAt     time.Time          `json:"installed_at"`
+	UninstalledAt   pgtype.Timestamptz `json:"uninstalled_at"`
+	CreatedAt       time.Time          `json:"created_at"`
+	UpdatedAt       time.Time          `json:"updated_at"`
+}
+
 type Order struct {
 	ID                uuid.UUID          `json:"id"`
 	ShopID            uuid.UUID          `json:"shop_id"`
@@ -299,6 +312,19 @@ type ProductVariant struct {
 	CreatedAt           time.Time          `json:"created_at"`
 	UpdatedAt           time.Time          `json:"updated_at"`
 	DeletedAt           pgtype.Timestamptz `json:"deleted_at"`
+}
+
+type RefreshToken struct {
+	ID         uuid.UUID          `json:"id"`
+	UserID     uuid.UUID          `json:"user_id"`
+	TokenHash  string             `json:"token_hash"`
+	UserAgent  pgtype.Text        `json:"user_agent"`
+	IpAddress  *netip.Addr        `json:"ip_address"`
+	Revoked    bool               `json:"revoked"`
+	RevokedAt  pgtype.Timestamptz `json:"revoked_at"`
+	CreatedAt  time.Time          `json:"created_at"`
+	ExpiresAt  time.Time          `json:"expires_at"`
+	LastUsedAt pgtype.Timestamptz `json:"last_used_at"`
 }
 
 type Shop struct {

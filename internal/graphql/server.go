@@ -11,11 +11,11 @@ import (
 	"github.com/99designs/gqlgen/graphql/playground"
 	"github.com/go-chi/chi/v5"
 
-	"yourapp/internal/graphql/dataloader"
-	"yourapp/internal/graphql/directive"
-	"yourapp/internal/graphql/generated"
-	"yourapp/internal/graphql/resolver"
-	"yourapp/internal/http/middleware"
+	"github.com/dfodeker/storeos/internal/graphql/dataloader"
+	"github.com/dfodeker/storeos/internal/graphql/directive"
+	"github.com/dfodeker/storeos/internal/graphql/generated"
+	"github.com/dfodeker/storeos/internal/graphql/resolver"
+	"github.com/dfodeker/storeos/internal/http/middleware"
 )
 
 type Server struct {

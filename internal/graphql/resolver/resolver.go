@@ -3,10 +3,10 @@ package resolver
 // internal/graphql/resolver/resolver.go
 
 import (
-	"yourapp/internal/application/customer"
-	"yourapp/internal/application/order"
-	"yourapp/internal/application/product"
-	"yourapp/internal/graphql/dataloader"
+	"github.com/dfodeker/storeos/internal/application/customer"
+	"github.com/dfodeker/storeos/internal/application/order"
+	"github.com/dfodeker/storeos/internal/application/product"
+	"github.com/dfodeker/storeos/internal/graphql/dataloader"
 )
 
 // Resolver is the root resolver with all dependencies
