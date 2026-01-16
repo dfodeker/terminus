@@ -9,14 +9,14 @@ import (
 	"github.com/google/uuid"
 )
 
-// GID represents a Global ID in format: gid://storeOS/{type}/{id}
+// GID represents a Global ID in format: gid://storeos/{type}/{id}
 // Encoded as base64 for external use
 type GID struct {
 	Type string
 	ID   uuid.UUID
 }
 
-const gidPrefix = "gid://storeOS/"
+const gidPrefix = "gid://storeos/"
 
 // GID Types - matches GraphQL type names
 const (

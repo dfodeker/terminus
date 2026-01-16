@@ -70,6 +70,14 @@ type UserRepository interface {
 	UpdateLastLogin(ctx context.Context, id uuid.UUID) error
 }
 
+type RefreshTokenRepository interface {
+	Create(ctx context.Context, token *domain.RefreshToken) error
+	GetByTokenHash(ctx context.Context, tokenHash string) (*domain.RefreshToken, error)
+	RevokeByUserID(ctx context.Context, userID uuid.UUID) error
+	Revoke(ctx context.Context, id uuid.UUID) error
+	DeleteExpired(ctx context.Context) error
+}
+
 type APICredentialRepository interface {
 	GetByPrefix(ctx context.Context, prefix string) (*domain.APICredential, error)
 	GetByID(ctx context.Context, id uuid.UUID) (*domain.APICredential, error)

@@ -2,11 +2,11 @@
 
 -- name: CreateUser :one
 INSERT INTO users (
-    email, email_verified, password_hash,
-    first_name, last_name, avatar_url, phone,
-    status, locale, timezone
+    email, password_hash,
+    first_name, last_name,
+    status 
 )
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+VALUES ($1, $2, $3, $4, $5)
 RETURNING *;
 
 -- name: GetUserByID :one

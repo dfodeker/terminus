@@ -177,7 +177,6 @@ func pgtypeToString(t pgtype.Text) string {
 	return ""
 }
 
-
 // statusToPgtype converts a product status pointer to pgtype.Text
 func statusToPgtype(s *domain.ProductStatus) pgtype.Text {
 	if s == nil {

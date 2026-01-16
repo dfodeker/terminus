@@ -3,6 +3,8 @@ package http
 // internal/http/routes.go
 
 import (
+	"log/slog"
+
 	"github.com/dfodeker/storeos/internal/domain"
 	"github.com/dfodeker/storeos/internal/http/handlers"
 	"github.com/dfodeker/storeos/internal/http/middleware"
@@ -11,6 +13,7 @@ import (
 )
 
 func NewRouter(
+	logger *slog.Logger,
 	authMiddleware *middleware.APIAuthMiddleware,
 	rateLimiter *middleware.RateLimiter,
 	productHandler *handlers.ProductHandler,
@@ -23,11 +26,10 @@ func NewRouter(
 	r := chi.NewRouter()
 
 	// Global middleware
-	r.Use(chimw.RequestID)
+	r.Use(middleware.RequestID)
 	r.Use(chimw.RealIP)
-	r.Use(chimw.Logger)
 	r.Use(chimw.Recoverer)
-	r.Use(middleware.RequestLogger)
+	r.Use(middleware.RequestLogger(logger))
 
 	// API routes
 	r.Route("/api/2025-01", func(r chi.Router) {

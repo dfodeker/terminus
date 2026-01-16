@@ -18,12 +18,12 @@ type AuthHandler struct {
 }
 
 type AuthConfig struct {
-	JWTSecret          string
-	JWTIssuer          string
-	AccessTokenTTL     time.Duration
-	RefreshTokenTTL    time.Duration
-	BcryptCost         int
-	PasswordMinLength  int
+	JWTSecret         string
+	JWTIssuer         string
+	AccessTokenTTL    time.Duration
+	RefreshTokenTTL   time.Duration
+	BcryptCost        int
+	PasswordMinLength int
 }
 
 type TokenService interface {
@@ -56,10 +56,10 @@ type LoginRequest struct {
 
 // AuthResponse represents the authentication response
 type AuthResponse struct {
-	AccessToken  string `json:"access_token"`
-	RefreshToken string `json:"refresh_token"`
-	TokenType    string `json:"token_type"`
-	ExpiresIn    int    `json:"expires_in"`
+	AccessToken  string       `json:"access_token"`
+	RefreshToken string       `json:"refresh_token"`
+	TokenType    string       `json:"token_type"`
+	ExpiresIn    int          `json:"expires_in"`
 	User         UserResponse `json:"user"`
 }
 

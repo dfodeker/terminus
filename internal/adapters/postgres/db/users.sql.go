@@ -26,40 +26,30 @@ func (q *Queries) CountUsers(ctx context.Context) (int64, error) {
 const createUser = `-- name: CreateUser :one
 
 INSERT INTO users (
-    email, email_verified, password_hash,
-    first_name, last_name, avatar_url, phone,
-    status, locale, timezone
+    email, password_hash,
+    first_name, last_name,
+    status 
 )
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+VALUES ($1, $2, $3, $4, $5)
 RETURNING id, email, email_verified, password_hash, first_name, last_name, avatar_url, phone, status, locale, timezone, created_at, updated_at, last_login_at, deleted_at
 `
 
 type CreateUserParams struct {
-	Email         string      `json:"email"`
-	EmailVerified bool        `json:"email_verified"`
-	PasswordHash  pgtype.Text `json:"password_hash"`
-	FirstName     pgtype.Text `json:"first_name"`
-	LastName      pgtype.Text `json:"last_name"`
-	AvatarUrl     pgtype.Text `json:"avatar_url"`
-	Phone         pgtype.Text `json:"phone"`
-	Status        string      `json:"status"`
-	Locale        string      `json:"locale"`
-	Timezone      string      `json:"timezone"`
+	Email        string      `json:"email"`
+	PasswordHash pgtype.Text `json:"password_hash"`
+	FirstName    pgtype.Text `json:"first_name"`
+	LastName     pgtype.Text `json:"last_name"`
+	Status       string      `json:"status"`
 }
 
 // db/queries/users.sql
 func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, error) {
 	row := q.db.QueryRow(ctx, createUser,
 		arg.Email,
-		arg.EmailVerified,
 		arg.PasswordHash,
 		arg.FirstName,
 		arg.LastName,
-		arg.AvatarUrl,
-		arg.Phone,
 		arg.Status,
-		arg.Locale,
-		arg.Timezone,
 	)
 	var i User
 	err := row.Scan(

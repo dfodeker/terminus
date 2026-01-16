@@ -311,4 +311,3 @@ func rowToShop(row db.Shop) *domain.Shop {
 
 	return shop
 }
-

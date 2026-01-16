@@ -4,7 +4,7 @@ package main
 import (
 	"context"
 	"fmt"
-	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
@@ -14,18 +14,47 @@ import (
 	"github.com/dfodeker/storeos/internal/adapters/postgres"
 	redisadapter "github.com/dfodeker/storeos/internal/adapters/redis"
 	"github.com/dfodeker/storeos/internal/config"
+	"github.com/dfodeker/storeos/internal/http/handlers"
 	"github.com/dfodeker/storeos/internal/http/middleware"
 	"github.com/go-chi/chi/v5"
 	chimw "github.com/go-chi/chi/v5/middleware"
+	"github.com/joho/godotenv"
 	goredis "github.com/redis/go-redis/v9"
 )
 
 func main() {
+	_ = godotenv.Load()
 	ctx := context.Background()
 	cfg, err := config.Load()
 	if err != nil {
-		log.Fatalf("failed to load config: %v", err)
+		slog.Error("failed to load config", "error", err)
+		os.Exit(1)
 	}
+
+	// =========================================================================
+	// Logger Setup
+	// =========================================================================
+	var logger *slog.Logger
+	logLevel := slog.LevelInfo
+	if cfg.Logging.Level == "debug" {
+		logLevel = slog.LevelDebug
+	} else if cfg.Logging.Level == "warn" {
+		logLevel = slog.LevelWarn
+	} else if cfg.Logging.Level == "error" {
+		logLevel = slog.LevelError
+	}
+
+	opts := &slog.HandlerOptions{
+		Level:     logLevel,
+		AddSource: cfg.Logging.IncludeCaller,
+	}
+
+	if cfg.Logging.Format == "json" {
+		logger = slog.New(slog.NewJSONHandler(os.Stdout, opts))
+	} else {
+		logger = slog.New(slog.NewTextHandler(os.Stdout, opts))
+	}
+	slog.SetDefault(logger)
 
 	// =========================================================================
 	// Infrastructure
@@ -33,20 +62,44 @@ func main() {
 
 	// Postgres - convert config types
 	pgCfg := postgres.Config{
+		URL:      cfg.Database.URL,
 		Host:     cfg.Database.Host,
 		Port:     cfg.Database.Port,
 		User:     cfg.Database.User,
 		Password: cfg.Database.Password,
 		Database: cfg.Database.Database,
+		SSLMode:  cfg.Database.SSLMode,
 		MaxConns: cfg.Database.MaxConns,
 		MinConns: cfg.Database.MinConns,
 	}
+	logger.Info("connecting to database",
+		"host", pgCfg.Host,
+		"name", pgCfg.User,
+		"port", pgCfg.Port,
+		"database", pgCfg.Database,
+		"sslmode", pgCfg.SSLMode,
+	)
 
 	pool, err := postgres.NewPool(ctx, pgCfg)
 	if err != nil {
-		log.Fatalf("failed to connect to database: %v", err)
+		logger.Error("failed to connect to database", "error", err)
+		os.Exit(1)
 	}
 	defer pool.Close()
+
+	// Debug: verify database schema
+	var colExists bool
+	err = pool.QueryRow(ctx, `
+		SELECT EXISTS (
+			SELECT 1 FROM information_schema.columns
+			WHERE table_name = 'users' AND column_name = 'password_hash'
+		)
+	`).Scan(&colExists)
+	if err != nil {
+		logger.Error("schema check failed", "error", err)
+	} else {
+		logger.Info("schema check", "password_hash_exists", colExists)
+	}
 
 	// Redis
 	redisClient := goredis.NewClient(&goredis.Options{
@@ -58,7 +111,7 @@ func main() {
 
 	// Test Redis connection
 	if err := redisClient.Ping(ctx).Err(); err != nil {
-		log.Printf("warning: redis connection failed: %v", err)
+		logger.Warn("redis connection failed", "error", err)
 	}
 
 	cache := redisadapter.NewCache(redisClient)
@@ -80,16 +133,28 @@ func main() {
 	rateLimiter := middleware.NewRateLimiter(redisClient)
 
 	// =========================================================================
+	// Handlers
+	// =========================================================================
+
+	userAuthHandler := handlers.NewUserAuthHandler(userRepo, cache, handlers.UserAuthConfig{
+		JWTSecret:       cfg.Auth.JWTSecret,
+		AccessTokenTTL:  cfg.Auth.JWTAccessTokenTTL,
+		RefreshTokenTTL: cfg.Auth.JWTRefreshTokenTTL,
+		BcryptCost:      cfg.Auth.BcryptCost,
+		MinPasswordLen:  cfg.Auth.PasswordMinLength,
+	})
+
+	// =========================================================================
 	// Router
 	// =========================================================================
 
 	r := chi.NewRouter()
 
 	// Global middleware
-	r.Use(chimw.RequestID)
+	r.Use(middleware.RequestID)
 	r.Use(chimw.RealIP)
-	r.Use(chimw.Logger)
 	r.Use(chimw.Recoverer)
+	r.Use(middleware.RequestLogger(logger))
 	r.Use(chimw.Timeout(30 * time.Second))
 
 	// Health check (no auth)
@@ -97,12 +162,44 @@ func main() {
 		w.Write([]byte("OK"))
 	})
 
-	// API routes with auth
-	r.Route("/api/v1", func(r chi.Router) {
+	// =========================================================================
+	// Auth routes (no auth required)
+	// =========================================================================
+	r.Route("/auth", func(r chi.Router) {
+		r.Post("/register", userAuthHandler.Register)
+		r.Post("/login", userAuthHandler.Login)
+		r.Post("/refresh", userAuthHandler.RefreshToken)
+		r.Post("/logout", userAuthHandler.Logout)
+	})
+
+	// =========================================================================
+	// User routes (JWT auth for dashboard/admin)
+	// =========================================================================
+	userAuthMiddleware := middleware.NewRequireAuthMiddleware(cfg.Auth.JWTSecret, userRepo)
+	r.Route("/api/v1/user", func(r chi.Router) {
+		r.Use(userAuthMiddleware.Handler)
+
+		// Current user info endpoint
+		r.Get("/me", func(w http.ResponseWriter, r *http.Request) {
+			userCtx := middleware.UserFromContext(r.Context())
+			if userCtx == nil {
+				http.Error(w, "unauthorized", http.StatusUnauthorized)
+				return
+			}
+
+			w.Header().Set("Content-Type", "application/json")
+			fmt.Fprintf(w, `{"user_id": "%s", "email": "%s"}`, userCtx.UserID, userCtx.Email)
+		})
+	})
+
+	// =========================================================================
+	// Shop API routes (API keys and OAuth tokens for integrations)
+	// =========================================================================
+	r.Route("/api/v1/shop", func(r chi.Router) {
 		r.Use(authMiddleware.Handler)
 		r.Use(rateLimiter.Handler)
 
-		// User info endpoint
+		// Shop info endpoint
 		r.Get("/me", func(w http.ResponseWriter, r *http.Request) {
 			auth := middleware.AuthFromContext(r.Context())
 			if auth == nil {
@@ -114,9 +211,6 @@ func main() {
 			fmt.Fprintf(w, `{"shop_id": "%s", "auth_type": "%s"}`, auth.ShopID, auth.AuthType)
 		})
 	})
-
-	// Keep track of unused variables to satisfy compiler
-	_ = userRepo
 
 	// =========================================================================
 	// Server
@@ -133,9 +227,10 @@ func main() {
 
 	// Graceful shutdown
 	go func() {
-		log.Printf("Starting server on %s", addr)
+		logger.Info("starting server", "addr", addr)
 		if err := srv.ListenAndServe(); err != http.ErrServerClosed {
-			log.Fatalf("Server error: %v", err)
+			logger.Error("server error", "error", err)
+			os.Exit(1)
 		}
 	}()
 
@@ -143,14 +238,15 @@ func main() {
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
 
-	log.Println("Shutting down...")
+	logger.Info("shutting down server")
 
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), cfg.Server.ShutdownTimeout)
 	defer cancel()
 
 	if err := srv.Shutdown(shutdownCtx); err != nil {
-		log.Fatalf("Shutdown error: %v", err)
+		logger.Error("shutdown error", "error", err)
+		os.Exit(1)
 	}
 
-	log.Println("Server stopped")
+	logger.Info("server stopped")
 }

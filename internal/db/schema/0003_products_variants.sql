@@ -807,8 +807,3 @@ DROP TABLE IF EXISTS collections;
 DROP TABLE IF EXISTS product_images;
 DROP TABLE IF EXISTS product_variants;
 DROP TABLE IF EXISTS products;
-
-
--- Drop extensions
-DROP EXTENSION IF EXISTS "pgcrypto";
-DROP EXTENSION IF EXISTS "uuid-ossp";

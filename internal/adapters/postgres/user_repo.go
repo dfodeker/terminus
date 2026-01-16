@@ -4,6 +4,7 @@ package postgres
 import (
 	"context"
 	"errors"
+	"log"
 
 	"github.com/dfodeker/storeos/internal/adapters/postgres/db"
 	"github.com/dfodeker/storeos/internal/domain"
@@ -31,18 +32,14 @@ func NewUserRepository(pool *pgxpool.Pool) *UserRepository {
 
 func (r *UserRepository) Create(ctx context.Context, user *domain.User) error {
 	row, err := r.queries.CreateUser(ctx, db.CreateUserParams{
-		Email:         user.Email,
-		EmailVerified: user.EmailVerified,
-		PasswordHash:  textToPgtype(user.PasswordHash),
-		FirstName:     textToPgtype(user.FirstName),
-		LastName:      textToPgtype(user.LastName),
-		AvatarUrl:     textToPgtype(user.AvatarURL),
-		Phone:         textToPgtype(user.Phone),
-		Status:        user.Status,
-		Locale:        user.Locale,
-		Timezone:      user.Timezone,
+		Email:        user.Email,
+		PasswordHash: textToPgtype(user.PasswordHash),
+		FirstName:    textToPgtype(user.FirstName),
+		LastName:     textToPgtype(user.LastName),
+		Status:       user.Status,
 	})
 	if err != nil {
+		log.Printf("error creating user: %v", err)
 		if isPgUniqueViolation(err) {
 			return ErrUserAlreadyExists
 		}
@@ -159,4 +156,3 @@ func dbUserToDomain(row db.User) *domain.User {
 
 	return user
 }
-

@@ -11,8 +11,8 @@ import (
 )
 
 const (
-	UserIDKey  contextKey = "user_id"
-	UserKey    contextKey = "user"
+	UserIDKey contextKey = "user_id"
+	UserKey   contextKey = "user"
 )
 
 // UserContext contains user authentication info for a request

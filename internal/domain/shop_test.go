@@ -47,12 +47,12 @@ func TestShop_Validate(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "valid shop with mystoreOS domain",
+			name: "valid shop with mystoreos domain",
 			shop: Shop{
 				Id:              1,
 				Name:            "Test Shop",
 				Email:           "test@example.com",
-				MyShopifyDomain: "testshop.mystoreOS.com",
+				MyShopifyDomain: "testshop.mystoreos.com",
 			},
 			wantErr: false,
 		},
@@ -94,7 +94,7 @@ func TestShop_Validate(t *testing.T) {
 				Email: "test@example.com",
 			},
 			wantErr: true,
-			errMsg:  "domain or mystoreOS_domain is required",
+			errMsg:  "domain or mystoreos_domain is required",
 		},
 	}
 

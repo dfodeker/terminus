@@ -49,3 +49,17 @@ func (u *User) FullName() string {
 func (u *User) IsActive() bool {
 	return u.Status == string(UserStatusActive) && u.DeletedAt == nil
 }
+
+// RefreshToken represents a user's refresh token for JWT authentication
+type RefreshToken struct {
+	ID        uuid.UUID
+	UserID    uuid.UUID
+	TokenHash string // Store hash of the token, not the token itself
+	ExpiresAt time.Time
+	CreatedAt time.Time
+	RevokedAt *time.Time
+}
+
+func (rt *RefreshToken) IsValid() bool {
+	return rt.RevokedAt == nil && time.Now().Before(rt.ExpiresAt)
+}
