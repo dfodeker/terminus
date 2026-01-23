@@ -1,184 +1,108 @@
-# Terminus
+# StoreOS
 
-This project is a deliberately small but serious backend system designed to model how real production services behave under stress, change, and failure.
+An open-source e-commerce infrastructure for developers who want to build, experiment, and ship — without the paywall.
 
-At first glance, it looks like a simple store. Under the hood, it is an event-driven, multi-tenant backend that explores correctness, resilience, and operational discipline rather than surface-level product features.
+## Motivation
 
-The backend is written in Go and implements an asynchronous checkout flow with idempotency, retries, background processing, and feature flags that genuinely alter runtime behavior. A lightweight Next.js frontend exists only to make the system easier to demo, inspect, and reason about—it is not the focus.
+I've spent a lot of time building with Shopify. It's powerful, but every time I wanted to spin up a headless storefront or experiment with a new idea, I hit the same wall: *"Choose a plan to continue."* (not the exact words, but you get the idea).
 
-As the system evolved, it grew into something closer to a “Shopify-lite” backend: capable of serving multiple stores, handling real scaling concerns, and supporting analytics, fault detection, and load testing. The goal is not completeness, but realism.
+I just wanted to play around. Test an idea. Build something.
 
----
+StoreOS is the shopping infrastructure I wished existed — one that stays conceptually close to Shopify (products, variants, collections, themes) but gets out of your way. It's open-source, self-hostable, and built for developers who want a commerce backend they can actually tinker with.
 
-> Embrace Complexity
+Think of it as a cross between Shopify's mental model and Medusa's developer-first philosophy, with a few ideas of its own — like built-in feature flags so merchants can incrementally roll out changes to customers instead of the all-or-nothing deployments we've all grown to dread.
 
-## Why this project exists
+## Features
 
- This project intentionally goes further than a CRUD application.
+- **Multi-tenant architecture** — Organizations, stores, and role-based access control
+- **Products & variants** — Flexible product modeling
+- **Feature flags** — Roll out storefront changes incrementally (coming soon)
+- **Themes** — Customizable storefronts with a lightweight templating system (coming soon)
+- **Headless-first** — Build any frontend you want
 
-The project exists to practice and demonstrate the kinds of problems that show up in real backend systems:
+### Roadmap
 
-Requests are retried.
+- [ ] Collections
+- [ ] Discounts
+- [ ] Checkout with Stripe
+- [ ] Theme engine (Liquid-inspired)
+- [ ] Admin dashboard
 
-Work is processed asynchronously.
+## Quick Start
 
-Events arrive more than once—or not at all.
+### Prerequisites
 
-Requirements change after code is already deployed.
+- Go 1.21+
+- PostgreSQL 15+
 
-Systems must scale, degrade gracefully, and remain observable.
+### Installation
 
-Instead of optimizing for features or polish, the system optimizes for correctness under failure. It asks questions like:
+```bash
+git clone https://github.com/dfodeker/storeOS.git
+cd storeOS
+```
 
-What happens if the same checkout is processed twice?
+### Configuration
 
-How do you guarantee idempotency across async boundaries?
+```bash
+cp .env.example .env
+```
 
-How do you roll out behavior changes safely without redeploying?
+Set your environment variables:
 
-How do you detect and reason about faults before users report them?
+```env
+DATABASE_URL=postgres://user:password@localhost:5432/storeos?sslmode=disable
+PORT=8080
+JWT_SECRET=your-secret-key
+```
 
-How does a multi-tenant system fail, and how do you see it happening?
----
+### Run
 
-## High-level architecture
+```bash
+# Run migrations
+make migrate
 
-- **API service (Go)**  
-  Handles HTTP requests, validates input, writes domain state, and records events.
+# Start the server
+make run
+```
 
-- **Worker service (Go)**  
-  Processes domain events asynchronously using an outbox table and retry logic.
+The API will be available at `http://localhost:8080`.
 
-- **Postgres**  
-  Primary datastore for orders, inventory, payments, feature flags, and events.
+## Project Structure
 
-- **Next.js frontend**  
-  Simple UI for browsing products, checking out, viewing order status, and toggling feature flags.
+```
+/cmd
+    /api                 # Application entrypoint
+/internal
+    /domain              # Core business entities and interfaces
+    /application         # Use cases and services  
+    /adapter
+        /postgres        # Database implementations
+        /http            # Handlers and middleware
+/migrations              # SQL migrations
+/config                  # Configuration loading
+```
 
-Everything runs locally via Docker Compose.
+## Tech Stack
 
----
+| Component | Technology |
+|-----------|------------|
+| Language | Go |
+| Database | PostgreSQL |
+| Migrations | goose |
+| SQL | sqlc |
+| Auth | JWT |
 
-## Core concepts implemented
+## Contributing
 
-### Event-driven checkout
+StoreOS is early and evolving. If you're into e-commerce infra or just want to poke around, contributions are welcome.
 
-Checkout does not directly “do everything.” Instead, it records a `PaymentAuthorized` event and lets a worker process the rest of the workflow. This keeps the API responsive and makes retries safer.
+1. Fork the repo
+2. Create your feature branch (`git checkout -b feature/cool-thing`)
+3. Commit your changes (`git commit -m 'Add cool thing'`)
+4. Push to the branch (`git push origin feature/cool-thing`)
+5. Open a Pull Request
 
-### Outbox pattern
+## License
 
-Events are written to the database in the same transaction as state changes. A worker polls the outbox and processes events exactly once, even across restarts.
-
-### Idempotency
-
-Checkout requests require an idempotency key. Retrying the same request will never create duplicate payments or inventory changes.
-
-### Feature flags that affect backend behavior
-
-Feature flags are not just UI toggles. For example:
-
-- `checkout.async_enabled`
-  - When enabled, checkout returns immediately and finishes in the background.
-  - When disabled, checkout processes synchronously.
-
-This makes it easy to test different execution paths and rollout strategies.
-
-### Inventory safety
-
-Inventory updates are done atomically to prevent overselling, even under concurrent checkouts.
-
----
-
-## What’s intentionally not included (yet)
-
-- Authentication / user accounts
-- Real payment providers
-- External message brokers (Kafka, NATS, etc.)
-- Complex UI or styling
-
-Those are deliberately left out to keep the focus on backend behavior and correctness.
-
----
-
-## Project structure
-/backend
-  /cmd/api        # HTTP API
-    /cmd/api/main.go
-  /cmd/worker
-    /cmd/worker/main.go
-  
-    go.mod
-    go.sum
-  
-/frontend         # Next.js app
-docker-compose.yml
-
-Running the project locally
-
-Prerequisites:
-
-Docker
-
-Docker Compose
-
-Start everything:
-
-docker-compose up --build
-
-
-This will start:
-
-Postgres
-
-Go API service
-
-Go worker service
-
-Next.js frontend
-
-How to try it
-
-Open the frontend and browse products
-
-Create an order and checkout
-
-Toggle checkout.async_enabled in the flags page
-
-Observe how checkout behavior changes
-
-Retry the same checkout request and verify it’s safe
-
-Watch order status transition as events are processed
-
-Known limitations
-
-Single-node setup
-
-Simplified domain model
-
-Minimal error handling for external integrations
-
-No authentication or authorization
-
-These are tradeoffs made to keep the project focused and understandable.
-
-Future work
-
-Failure compensation (refunds, cancellations)
-
-Webhook delivery with retries and dead-lettering
-
-Observability (tracing, metrics, dashboards)
-
-External message broker integration
-
-Load testing and concurrency benchmarks
-
-Final note
-
-This project is meant to be read as much as it is meant to be run.
-Code clarity, explicit tradeoffs, and correctness matter more here than feature count.
-
-
-
-
+MIT
