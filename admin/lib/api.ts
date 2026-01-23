@@ -32,8 +32,7 @@ export async function api<T>(
 
   try {
     const response = await fetch(`${API_BASE_URL}${endpoint}`, config);
-    console.log('API Request URL:', `${API_BASE_URL}${endpoint}`);
-    console.log('API Response Status:', response.status);
+    
     const text = await response.text();
 
     let data: unknown;

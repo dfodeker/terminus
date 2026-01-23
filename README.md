@@ -1,177 +1,108 @@
-# Terminus
-A modern, multi-tenant e-commerce platform built with Go and Next.js. Similar to Shopify, it allows merchants to create online stores with customizable themes, manage products, process orders, and build integrations via a powerful API.
+# StoreOS
 
----
+An open-source e-commerce infrastructure for developers who want to build, experiment, and ship — without the paywall.
 
-> Embrace Complexity
+## Motivation
 
-## Why this project exists
+I've spent a lot of time building with Shopify. It's powerful, but every time I wanted to spin up a headless storefront or experiment with a new idea, I hit the same wall: *"Choose a plan to continue."* (not the exact words, but you get the idea).
 
- This project intentionally goes further than a CRUD application.
+I just wanted to play around. Test an idea. Build something.
 
-The project exists to practice and demonstrate the kinds of problems that show up in real backend systems:
+StoreOS is the shopping infrastructure I wished existed — one that stays conceptually close to Shopify (products, variants, collections, themes) but gets out of your way. It's open-source, self-hostable, and built for developers who want a commerce backend they can actually tinker with.
 
-Requests are retried.
+Think of it as a cross between Shopify's mental model and Medusa's developer-first philosophy, with a few ideas of its own — like built-in feature flags so merchants can incrementally roll out changes to customers instead of the all-or-nothing deployments we've all grown to dread.
 
-Work is processed asynchronously.
+## Features
 
-Events arrive more than once—or not at all.
+- **Multi-tenant architecture** — Organizations, stores, and role-based access control
+- **Products & variants** — Flexible product modeling
+- **Feature flags** — Roll out storefront changes incrementally (coming soon)
+- **Themes** — Customizable storefronts with a lightweight templating system (coming soon)
+- **Headless-first** — Build any frontend you want
 
-Requirements change after code is already deployed.
+### Roadmap
 
-Systems must scale, degrade gracefully, and remain observable.
+- [ ] Collections
+- [ ] Discounts
+- [ ] Checkout with Stripe
+- [ ] Theme engine (Liquid-inspired)
+- [ ] Admin dashboard
 
-Instead of optimizing for features or polish, the system optimizes for correctness under failure. It asks questions like:
+## Quick Start
 
-What happens if the same checkout is processed twice?
+### Prerequisites
 
-How do you guarantee idempotency across async boundaries?
+- Go 1.21+
+- PostgreSQL 15+
 
-How do you roll out behavior changes safely without redeploying?
+### Installation
 
-How do you detect and reason about faults before users report them?
+```bash
+git clone https://github.com/dfodeker/storeOS.git
+cd storeOS
+```
 
-How does a multi-tenant system fail, and how do you see it happening?
----
+### Configuration
 
-## High-level architecture
+```bash
+cp .env.example .env
+```
 
-- **API service (Go)**  
-  Handles HTTP requests, validates input, writes domain state, and records events.
+Set your environment variables:
 
-- **Worker service (Go)**  
-  Processes domain events asynchronously using an outbox table and retry logic.
+```env
+DATABASE_URL=postgres://user:password@localhost:5432/storeos?sslmode=disable
+PORT=8080
+JWT_SECRET=your-secret-key
+```
 
-- **Postgres**  
-  Primary datastore for orders, inventory, payments, feature flags, and events.
+### Run
 
-- **Next.js frontend**  
-  Simple UI for browsing products, checking out, viewing order status, and toggling feature flags.
+```bash
+# Run migrations
+make migrate
 
-Everything runs locally via Docker Compose.
+# Start the server
+make run
+```
 
----
+The API will be available at `http://localhost:8080`.
 
-## Core concepts implemented
+## Project Structure
 
-### Event-driven checkout
+```
+/cmd
+    /api                 # Application entrypoint
+/internal
+    /domain              # Core business entities and interfaces
+    /application         # Use cases and services  
+    /adapter
+        /postgres        # Database implementations
+        /http            # Handlers and middleware
+/migrations              # SQL migrations
+/config                  # Configuration loading
+```
 
-Checkout does not directly “do everything.” Instead, it records a `PaymentAuthorized` event and lets a worker process the rest of the workflow. This keeps the API responsive and makes retries safer.
+## Tech Stack
 
-### Outbox pattern
+| Component | Technology |
+|-----------|------------|
+| Language | Go |
+| Database | PostgreSQL |
+| Migrations | goose |
+| SQL | sqlc |
+| Auth | JWT |
 
-Events are written to the database in the same transaction as state changes. A worker polls the outbox and processes events exactly once, even across restarts.
+## Contributing
 
-### Idempotency
+StoreOS is early and evolving. If you're into e-commerce infra or just want to poke around, contributions are welcome.
 
-Checkout requests require an idempotency key. Retrying the same request will never create duplicate payments or inventory changes.
+1. Fork the repo
+2. Create your feature branch (`git checkout -b feature/cool-thing`)
+3. Commit your changes (`git commit -m 'Add cool thing'`)
+4. Push to the branch (`git push origin feature/cool-thing`)
+5. Open a Pull Request
 
-### Feature flags that affect backend behavior
+## License
 
-Feature flags are not just UI toggles. For example:
-
-- `checkout.async_enabled`
-  - When enabled, checkout returns immediately and finishes in the background.
-  - When disabled, checkout processes synchronously.
-
-This makes it easy to test different execution paths and rollout strategies.
-
-### Inventory safety
-
-Inventory updates are done atomically to prevent overselling, even under concurrent checkouts.
-
----
-
-## What’s intentionally not included (yet)
-
-- Authentication / user accounts
-- Real payment providers
-- External message brokers (Kafka, NATS, etc.)
-- Complex UI or styling
-
-Those are deliberately left out to keep the focus on backend behavior and correctness.
-
----
-
-## Project structure
-/backend
-  /cmd/api        # HTTP API
-    /cmd/api/main.go
-  /cmd/worker
-    /cmd/worker/main.go
-  
-    go.mod
-    go.sum
-  
-/frontend         # Next.js app
-docker-compose.yml
-
-Running the project locally
-
-Prerequisites:
-
-Docker
-
-Docker Compose
-
-Start everything:
-
-docker-compose up --build
-
-
-This will start:
-
-Postgres
-
-Go API service
-
-Go worker service
-
-Next.js frontend
-
-How to try it
-
-Open the frontend and browse products
-
-Create an order and checkout
-
-Toggle checkout.async_enabled in the flags page
-
-Observe how checkout behavior changes
-
-Retry the same checkout request and verify it’s safe
-
-Watch order status transition as events are processed
-
-Known limitations
-
-Single-node setup
-
-Simplified domain model
-
-Minimal error handling for external integrations
-
-No authentication or authorization
-
-These are tradeoffs made to keep the project focused and understandable.
-
-Future work
-
-Failure compensation (refunds, cancellations)
-
-Webhook delivery with retries and dead-lettering
-
-Observability (tracing, metrics, dashboards)
-
-External message broker integration
-
-Load testing and concurrency benchmarks
-
-Final note
-
-This project is meant to be read as much as it is meant to be run.
-Code clarity, explicit tradeoffs, and correctness matter more here than feature count.
-
-
-
-
+MIT

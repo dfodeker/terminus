@@ -29,7 +29,7 @@ export async function createSession(token: string): Promise<void> {
     path: '/',
     ...(domain && { domain }),
   });
-  console.log('Session created with token:', token);
+  
 }
 
 export async function getSession(): Promise<string | undefined> {
