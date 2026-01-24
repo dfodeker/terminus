@@ -69,12 +69,28 @@ interface RegisterPayload {
   last_name: string;
 }
 
+interface AuthUser {
+  id: string;
+  email: string;
+  first_name?: string;
+  last_name?: string;
+}
+
 interface AuthResponse {
-  user: {
-    id: string;
-    email: string;
-  };
-  token: string;
+  access_token: string;
+  refresh_token: string;
+  token_type: string;
+  expires_in: number;
+  user: AuthUser;
+  code: string; // Short-lived code for cross-subdomain redirect
+}
+
+interface TokenExchangeResponse {
+  access_token: string;
+  refresh_token: string;
+  token_type: string;
+  expires_in: number;
+  user: AuthUser;
 }
 
 export const authApi = {
@@ -88,5 +104,11 @@ export const authApi = {
     api<AuthResponse>('/auth/login', {
       method: 'POST',
       body: { email, password },
+    }),
+
+  exchangeCode: (code: string) =>
+    api<TokenExchangeResponse>('/auth/exchange', {
+      method: 'POST',
+      body: { code },
     }),
 };

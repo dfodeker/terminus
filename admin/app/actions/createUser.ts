@@ -2,7 +2,7 @@
 
 import { z } from 'zod';
 import { authApi } from '@/lib/api';
-import { createSession, getAdminUrl } from '@/lib/session';
+import { getAuthCallbackUrl } from '@/lib/session';
 import { redirect } from 'next/navigation';
 
 const schema = z.object({
@@ -54,9 +54,14 @@ export default async function createUser(
     };
   }
 
-  if (data?.token) {
-    await createSession(data.token);
+  if (!data?.code) {
+    return {
+      message: 'Authentication failed - no code received',
+      success: false,
+      errors: {},
+    };
   }
 
-  redirect(getAdminUrl());
+  // Redirect to admin subdomain with auth code
+  redirect(getAuthCallbackUrl(data.code));
 }
