@@ -69,7 +69,7 @@ interface RegisterPayload {
   last_name: string;
 }
 
-interface AuthUser {
+export interface AuthUser {
   id: string;
   email: string;
   first_name?: string;
@@ -110,5 +110,17 @@ export const authApi = {
     api<TokenExchangeResponse>('/auth/exchange', {
       method: 'POST',
       body: { code },
+    }),
+};
+
+interface MeResponse {
+  user_id: string;
+  email: string;
+}
+
+export const userApi = {
+  me: (accessToken: string) =>
+    api<MeResponse>('/api/v1/user/me', {
+      headers: { Authorization: `Bearer ${accessToken}` },
     }),
 };
