@@ -1,4 +1,3 @@
-import { redirect } from 'next/navigation';
 import { getSession } from '@/lib/session';
 import { userApi } from '@/lib/api';
 
@@ -7,18 +6,18 @@ export interface User {
   email: string;
 }
 
-export async function getAuthenticatedUser(): Promise<User> {
+export async function getAuthenticatedUser(): Promise<User | null> {
   const { accessToken } = await getSession();
 
   if (!accessToken) {
-    redirect('/login');
+    return null;
   }
 
   const { data, error } = await userApi.me(accessToken);
 
   if (error || !data) {
-    // TODO: try refresh token before redirecting
-    redirect('/login');
+    // TODO: try refresh token before returning null
+    return null;
   }
 
   return {

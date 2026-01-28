@@ -124,3 +124,33 @@ export const userApi = {
       headers: { Authorization: `Bearer ${accessToken}` },
     }),
 };
+
+import type { CreateShopPayload, Shop, ShopsListResponse, CreateOrganizationPayload, Organization } from './shops';
+
+export const organizationApi = {
+  create: (payload: CreateOrganizationPayload, accessToken: string) =>
+    api<Organization>('/api/2025-01/organizations', {
+      method: 'POST',
+      body: payload,
+      headers: { Authorization: `Bearer ${accessToken}` },
+    }),
+
+  list: (accessToken: string) =>
+    api<{ organizations: Organization[] }>('/api/2025-01/organizations', {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    }),
+};
+
+export const shopApi = {
+  create: (payload: CreateShopPayload, accessToken: string) =>
+    api<Shop>('/api/2025-01/shops', {
+      method: 'POST',
+      body: payload,
+      headers: { Authorization: `Bearer ${accessToken}` },
+    }),
+
+  list: (accessToken: string) =>
+    api<ShopsListResponse>('/api/2025-01/shops', {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    }),
+};

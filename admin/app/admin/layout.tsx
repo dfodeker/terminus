@@ -18,21 +18,21 @@ export const metadata: Metadata = {
   description: "Admin dashboard for managing the application",
 };
 
-export default  function AdminLayout({
+export default async function AdminLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  
+  const user = await getAuthenticatedUser() ?? { id: '', email: '' };
 
   return (
     <html lang="en">
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-     
+        <AuthProvider user={user}>
           {children}
-        
+        </AuthProvider>
       </body>
     </html>
   );
