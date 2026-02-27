@@ -142,6 +142,7 @@ func main() {
 		RefreshTokenTTL: cfg.Auth.JWTRefreshTokenTTL,
 		BcryptCost:      cfg.Auth.BcryptCost,
 		MinPasswordLen:  cfg.Auth.PasswordMinLength,
+		TokenCodeTTL:    5 * time.Minute, // Short-lived code for cross-subdomain auth
 	})
 
 	// =========================================================================
@@ -170,6 +171,7 @@ func main() {
 		r.Post("/login", userAuthHandler.Login)
 		r.Post("/refresh", userAuthHandler.RefreshToken)
 		r.Post("/logout", userAuthHandler.Logout)
+		r.Post("/exchange", userAuthHandler.Exchange)
 	})
 
 	// =========================================================================

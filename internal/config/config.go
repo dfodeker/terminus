@@ -218,6 +218,7 @@ type AuthConfig struct {
 	JWTIssuer          string
 	JWTAccessTokenTTL  time.Duration
 	JWTRefreshTokenTTL time.Duration
+	TokenCodeTTL       time.Duration
 
 	// API key settings
 	APIKeyPrefix string
@@ -429,6 +430,7 @@ func Load() (*Config, error) {
 		Auth: AuthConfig{
 			JWTSecret:              getEnv("JWT_SECRET", ""),
 			JWTIssuer:              getEnv("JWT_ISSUER", "yourplatform"),
+			TokenCodeTTL:           getEnvDuration("TokenCodeTTL", 5*time.Minute),
 			JWTAccessTokenTTL:      getEnvDuration("JWT_ACCESS_TOKEN_TTL", 15*time.Minute),
 			JWTRefreshTokenTTL:     getEnvDuration("JWT_REFRESH_TOKEN_TTL", 7*24*time.Hour),
 			APIKeyPrefix:           getEnv("API_KEY_PREFIX", "sk_"),

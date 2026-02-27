@@ -46,6 +46,18 @@ export default function proxy(request: NextRequest) {
 
 
     if (subdomain==="admin") {
+        // Guard: redirect unauthenticated users to accounts login
+        const hasSession = request.cookies.has('access_token');
+        const isAuthCallback = pathname.startsWith('/auth/callback');
+
+        if (!hasSession && !isAuthCallback) {
+            const port = host.includes(':') ? ':' + host.split(':')[1] : '';
+            const baseDomain = getBaseDomain(host);
+            const accountsHost = `accounts.${baseDomain}${port}`;
+            const protocol = host.includes('.local') || host.includes('localhost') ? 'http' : 'https';
+            return NextResponse.redirect(new URL(`${protocol}://${accountsHost}/login`));
+        }
+
         const url = request.nextUrl.clone();
         url.pathname = `/admin${request.nextUrl.pathname}`;
         return NextResponse.rewrite(url, {

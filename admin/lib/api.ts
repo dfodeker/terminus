@@ -69,12 +69,28 @@ interface RegisterPayload {
   last_name: string;
 }
 
+export interface AuthUser {
+  id: string;
+  email: string;
+  first_name?: string;
+  last_name?: string;
+}
+
 interface AuthResponse {
-  user: {
-    id: string;
-    email: string;
-  };
-  token: string;
+  access_token: string;
+  refresh_token: string;
+  token_type: string;
+  expires_in: number;
+  user: AuthUser;
+  code: string; // Short-lived code for cross-subdomain redirect
+}
+
+interface TokenExchangeResponse {
+  access_token: string;
+  refresh_token: string;
+  token_type: string;
+  expires_in: number;
+  user: AuthUser;
 }
 
 export const authApi = {
@@ -88,5 +104,53 @@ export const authApi = {
     api<AuthResponse>('/auth/login', {
       method: 'POST',
       body: { email, password },
+    }),
+
+  exchangeCode: (code: string) =>
+    api<TokenExchangeResponse>('/auth/exchange', {
+      method: 'POST',
+      body: { code },
+    }),
+};
+
+interface MeResponse {
+  user_id: string;
+  email: string;
+}
+
+export const userApi = {
+  me: (accessToken: string) =>
+    api<MeResponse>('/api/v1/user/me', {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    }),
+};
+
+import type { CreateShopPayload, Shop, ShopsListResponse, CreateOrganizationPayload, Organization } from './shops';
+
+export const organizationApi = {
+  create: (payload: CreateOrganizationPayload, accessToken: string) =>
+    api<Organization>('/api/2025-01/organizations', {
+      method: 'POST',
+      body: payload,
+      headers: { Authorization: `Bearer ${accessToken}` },
+    }),
+
+  list: (accessToken: string) =>
+    api<{ organizations: Organization[] }>('/api/2025-01/organizations', {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    }),
+};
+
+export const shopApi = {
+  create: (payload: CreateShopPayload, accessToken: string) =>
+    api<Shop>('/api/2025-01/shops', {
+      method: 'POST',
+      body: payload,
+      headers: { Authorization: `Bearer ${accessToken}` },
+    }),
+
+  list: (accessToken: string) =>
+    api<ShopsListResponse>('/api/2025-01/shops', {
+      headers: { Authorization: `Bearer ${accessToken}` },
     }),
 };

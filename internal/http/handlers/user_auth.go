@@ -23,6 +23,7 @@ type UserAuthHandler struct {
 	refreshTokenTTL time.Duration
 	bcryptCost      int
 	minPasswordLen  int
+	tokenCodeTTL    time.Duration
 }
 
 type UserAuthConfig struct {
@@ -31,6 +32,7 @@ type UserAuthConfig struct {
 	RefreshTokenTTL time.Duration
 	BcryptCost      int
 	MinPasswordLen  int
+	TokenCodeTTL    time.Duration
 }
 
 func NewUserAuthHandler(
@@ -46,6 +48,7 @@ func NewUserAuthHandler(
 		refreshTokenTTL: cfg.RefreshTokenTTL,
 		bcryptCost:      cfg.BcryptCost,
 		minPasswordLen:  cfg.MinPasswordLen,
+		tokenCodeTTL:    cfg.TokenCodeTTL,
 	}
 }
 
@@ -66,12 +69,17 @@ type RefreshTokenRequest struct {
 	RefreshToken string `json:"refresh_token"`
 }
 
+type ExchangeCodeRequest struct {
+	Code string `json:"code"`
+}
+
 type AuthTokenResponse struct {
 	AccessToken  string           `json:"access_token"`
 	RefreshToken string           `json:"refresh_token"`
 	TokenType    string           `json:"token_type"`
 	ExpiresIn    int              `json:"expires_in"`
 	User         AuthUserResponse `json:"user"`
+	Code         string           `json:"code,omitempty"`
 }
 
 type AuthUserResponse struct {
@@ -149,6 +157,13 @@ func (h *UserAuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Generate short-lived code for cross-subdomain auth
+	code, err := domain.MakeJWT(user.ID, h.jwtSecret, h.tokenCodeTTL)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to generate auth code")
+		return
+	}
+
 	resp := AuthTokenResponse{
 		AccessToken:  accessToken,
 		RefreshToken: refreshToken,
@@ -160,6 +175,7 @@ func (h *UserAuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 			FirstName: user.FirstName,
 			LastName:  user.LastName,
 		},
+		Code: code,
 	}
 
 	writeJSON(w, http.StatusCreated, resp)
@@ -207,6 +223,12 @@ func (h *UserAuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	code, err := domain.MakeJWT(user.ID, h.jwtSecret, h.tokenCodeTTL)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to connect token")
+		return
+	}
+
 	refreshToken, err := h.createRefreshToken(r.Context(), user.ID)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to generate refresh token")
@@ -224,6 +246,7 @@ func (h *UserAuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 			FirstName: user.FirstName,
 			LastName:  user.LastName,
 		},
+		Code: code,
 	}
 
 	writeJSON(w, http.StatusOK, resp)
@@ -277,6 +300,7 @@ func (h *UserAuthHandler) RefreshToken(w http.ResponseWriter, r *http.Request) {
 		RefreshToken: newRefreshToken,
 		TokenType:    "Bearer",
 		ExpiresIn:    int(h.accessTokenTTL.Seconds()),
+
 		User: AuthUserResponse{
 			ID:        user.ID.String(),
 			Email:     user.Email,
@@ -301,6 +325,67 @@ func (h *UserAuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// Exchange exchanges a short-lived auth code for tokens
+func (h *UserAuthHandler) Exchange(w http.ResponseWriter, r *http.Request) {
+	var req ExchangeCodeRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	if req.Code == "" {
+		writeError(w, http.StatusBadRequest, "code is required")
+		return
+	}
+
+	// Validate the code (it's a short-lived JWT)
+	userID, err := domain.ValidateJWT(req.Code, h.jwtSecret)
+	if err != nil {
+		writeError(w, http.StatusUnauthorized, "invalid or expired code")
+		return
+	}
+
+	// Get user to ensure they exist and are active
+	user, err := h.userRepo.GetByID(r.Context(), userID)
+	if err != nil {
+		writeError(w, http.StatusUnauthorized, "invalid code")
+		return
+	}
+
+	if !user.IsActive() {
+		writeError(w, http.StatusForbidden, "account is not active")
+		return
+	}
+
+	// Generate new tokens
+	accessToken, err := domain.MakeJWT(user.ID, h.jwtSecret, h.accessTokenTTL)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to generate token")
+		return
+	}
+
+	refreshToken, err := h.createRefreshToken(r.Context(), user.ID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to generate refresh token")
+		return
+	}
+
+	resp := AuthTokenResponse{
+		AccessToken:  accessToken,
+		RefreshToken: refreshToken,
+		TokenType:    "Bearer",
+		ExpiresIn:    int(h.accessTokenTTL.Seconds()),
+		User: AuthUserResponse{
+			ID:        user.ID.String(),
+			Email:     user.Email,
+			FirstName: user.FirstName,
+			LastName:  user.LastName,
+		},
+	}
+
+	writeJSON(w, http.StatusOK, resp)
 }
 
 // Refresh token helpers using Redis cache
